@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Mis Notas</title>
+<style>
+:root{
+  --bg:#f4f5fb; --card:#ffffff; --text:#1c1d29; --muted:#6b6f85; --line:#e3e5ef;
+  --primary:#4f46e5; --primary-soft:#eceafd; --ok:#16a34a; --ok-soft:#e6f6ec;
+  --warn:#d97706; --warn-soft:#fdf3e2; --bad:#dc2626; --bad-soft:#fdeaea;
+  --radius:14px; --shadow:0 1px 3px rgba(20,20,50,.06),0 4px 14px rgba(20,20,50,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#111219; --card:#1b1c26; --text:#ececf3; --muted:#9a9db3; --line:#2c2e3c;
+    --primary:#818cf8; --primary-soft:#272a4a; --ok:#4ade80; --ok-soft:#173022;
+    --warn:#fbbf24; --warn-soft:#352a12; --bad:#f87171; --bad-soft:#3a1c1c;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+  -webkit-text-size-adjust:100%;padding-bottom:calc(90px + env(safe-area-inset-bottom))}
+a{color:var(--primary)}
+.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:12px 14px;
+  padding-top:calc(12px + env(safe-area-inset-top));background:var(--bg);border-bottom:1px solid var(--line)}
+.top h1{flex:1;margin:0;font-size:1.15rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:40px;border-radius:12px;border:none;
+  background:var(--card);color:var(--text);font-size:1.25rem;text-decoration:none;cursor:pointer;box-shadow:var(--shadow)}
+main{max-width:680px;margin:0 auto;padding:14px}
+.muted{color:var(--muted)} .small{font-size:.85rem}
+.empty{text-align:center;padding:40px 10px}
+.empty .big{font-size:3rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);color:var(--text);font-size:.95rem;font-weight:600;cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.sm{padding:7px 11px;font-size:.85rem}
+.btn.block{display:flex;width:100%;margin-top:14px}
+.link{background:none;border:none;color:var(--primary);font-weight:600;font-size:.85rem;padding:4px 0;cursor:pointer}
+.link.danger{color:var(--bad)}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom));padding:14px 24px;border-radius:999px;
+  border:none;background:var(--primary);color:#fff;font-weight:700;font-size:1rem;box-shadow:0 6px 20px rgba(79,70,229,.35);cursor:pointer}
+
+/* lista de cursos */
+.list{display:flex;flex-direction:column;gap:10px}
+.course-row{display:block;background:var(--card);border-radius:var(--radius);padding:14px;text-decoration:none;color:var(--text);box-shadow:var(--shadow);border:1px solid var(--line)}
+.cr-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.cr-name{font-weight:700;font-size:1.02rem}
+.cr-meta{display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted);margin-top:8px;gap:8px;flex-wrap:wrap}
+.chip{font-size:.72rem;font-weight:700;padding:4px 9px;border-radius:999px;white-space:nowrap;background:var(--primary-soft);color:var(--primary)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.none{background:var(--line);color:var(--muted)}
+.bar{height:9px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar>div{height:100%;border-radius:99px;background:var(--primary);transition:width .3s}
+.bar.ok>div{background:var(--ok)}
+
+/* resumen del curso */
+.summary{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);border:1px solid var(--line);margin-bottom:14px}
+.sum-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.sum-top .label{font-size:.82rem;color:var(--muted)}
+.sum-top .bigpct{font-size:2.2rem;font-weight:800;line-height:1.1}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stats>div{background:var(--bg);border-radius:10px;padding:9px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stats span{font-size:.7rem;color:var(--muted)} .stats b{font-size:1.15rem} .stats small{font-size:.68rem;color:var(--muted)}
+.need-msg{margin-top:12px;padding:10px 12px;border-radius:10px;font-size:.9rem;background:var(--primary-soft)}
+.need-msg.ok{background:var(--ok-soft)} .need-msg.bad{background:var(--bad-soft)} .need-msg.warn{background:var(--warn-soft)}
+.need-msg + .need-msg{margin-top:8px}
+.alert{padding:11px 13px;border-radius:12px;font-size:.88rem;margin-bottom:14px}
+.alert.warn{background:var(--warn-soft);color:var(--text);border:1px solid var(--warn)}
+
+/* árbol de notas */
+.tree{display:flex;flex-direction:column;gap:10px}
+.group{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden}
+.group .group{box-shadow:none;border-radius:10px;margin:0}
+.group-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;background:var(--primary-soft)}
+.group .group .group-head{background:var(--bg)}
+.group-name{font-weight:700}
+.group-val{text-align:right;font-weight:700;font-size:.95rem;white-space:nowrap}
+.group-val small{display:block;font-weight:500;font-size:.7rem;color:var(--muted)}
+.group-body{padding:8px;display:flex;flex-direction:column;gap:8px}
+.leaf{display:flex;align-items:center;gap:8px;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.tree>.leaf{box-shadow:var(--shadow)}
+.leaf.locked{border-color:var(--ok);background:var(--ok-soft)}
+.leaf-info{flex:1;min-width:0}
+.leaf-name{font-weight:600}
+.leaf-w{font-size:.72rem;color:var(--muted)}
+.need{font-size:.74rem;font-weight:600;color:var(--primary);margin-top:2px}
+.need.bad{color:var(--bad)} .need.ok{color:var(--ok)}
+input{font:inherit;color:var(--text)}
+input.grade{width:74px;height:44px;text-align:center;font-size:1.1rem;font-weight:700;border-radius:10px;border:1.5px solid var(--line);background:var(--bg)}
+input.grade:focus{outline:none;border-color:var(--primary)}
+input.grade:disabled{opacity:1;-webkit-text-fill-color:var(--ok);color:var(--ok);border-color:var(--ok);background:transparent}
+input.grade.invalid{border-color:var(--bad)}
+input.grade.wide{width:100%;margin-top:6px}
+.lock-btn{width:44px;height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-size:1.1rem;cursor:pointer}
+.lock-btn:disabled{border-color:var(--ok);background:transparent;cursor:default}
+
+/* configuración */
+.card{background:var(--card);border-radius:var(--radius);padding:14px;border:1px solid var(--line);box-shadow:var(--shadow);margin-bottom:14px}
+label{display:flex;flex-direction:column;gap:5px;font-size:.8rem;color:var(--muted);font-weight:600;margin-bottom:10px}
+label input,.cfg-name,.cfg-w{height:42px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);padding:0 11px;font-size:1rem;width:100%}
+label input:focus,.cfg-name:focus,.cfg-w:focus{outline:none;border-color:var(--primary)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row2 label{margin-bottom:0}
+.section-title{font-size:1rem;margin:20px 0 4px}
+.cfg-list{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line)}
+.cfg-list .cfg-list{background:var(--bg);margin-top:8px;padding:8px;border-left:3px solid var(--primary)}
+/* Nivel principal: cada evaluación en su propio recuadro, separado */
+.cfg-list.root{background:none;border:none;padding:0;gap:14px;margin-top:10px}
+.cfg-list.root>.cfg-node{padding:14px;border-radius:var(--radius);box-shadow:var(--shadow)}
+.cfg-list.root>.cfg-node>.cfg-row .cfg-name{font-weight:700}
+.cfg-list.root>.cfg-foot{padding:4px 2px}
+.cfg-node{padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.cfg-row{display:flex;gap:8px;align-items:center}
+.cfg-name{flex:1;min-width:0}
+.pct{display:flex;align-items:center;gap:4px;width:96px;flex-shrink:0}
+.pct .cfg-w{text-align:right;padding:0 8px}
+.pct span{color:var(--muted);font-weight:700}
+.cfg-actions{display:flex;gap:16px;align-items:center;margin-top:6px}
+.tag{font-size:.75rem;color:var(--ok);font-weight:700}
+.cfg-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.cfg-foot-btns{display:flex;gap:6px;margin-left:auto}
+.sum{font-size:.8rem;font-weight:700}
+.sum.ok{color:var(--ok)} .sum.bad{color:var(--bad)}
+.danger-zone{margin-top:26px;text-align:center}
+
+/* modal y toast */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(10,10,25,.5);display:flex;align-items:flex-end;justify-content:center;padding:14px}
+.modal[hidden]{display:none}
+@media (min-width:600px){.modal{align-items:center}}
+.modal-box{width:100%;max-width:440px;background:var(--card);border-radius:18px;padding:18px;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+.modal-box h3{margin:0 0 8px}
+.modal-box p{margin:6px 0}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.modal-actions .btn{flex:1}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;background:var(--text);color:var(--bg);
+  padding:10px 16px;border-radius:999px;font-size:.88rem;font-weight:600;max-width:90vw;text-align:center}
+.toast[hidden]{display:none}
+</style>
+</head>
+<body>
+<header class="top">
+  <a id="back" class="icon-btn" hidden aria-label="Volver">‹</a>
+  <h1 id="title">Mis Notas</h1>
+  <div id="topActions"></div>
+</header>
+<main id="app"></main>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <h3 id="mTitle"></h3>
+    <div id="mBody"></div>
+    <div class="modal-actions" id="mActions"></div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script>
+/* ============ Datos ============ */
+const KEY = 'misNotas.v1';
+const EPS = 0.01;
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+let state = load();
+
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.courses)) return s; } catch (e) {}
+  return { courses: [] };
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast('No se pudo guardar en este dispositivo'); }
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const round2 = n => Math.round(n * 100) / 100;
+const fmt = (n, d = 2) => (n == null || !isFinite(n)) ? '—' : n.toLocaleString('es-PE', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+const parseNum = v => {
+  if (v == null) return null;
+  v = String(v).trim().replace(',', '.');
+  if (v === '') return null;
+  const n = Number(v);
+  return isFinite(n) ? n : NaN;
+};
+const isLeaf = n => !n.children || n.children.length === 0;
+const newNode = (name, weight) => ({ id: uid(), name, weight, children: [], grade: null, locked: false });
+const findCourse = id => state.courses.find(c => c.id === id);
+
+function findNode(list, id, parent = null) {
+  for (const n of list) {
+    if (n.id === id) return { node: n, parent, list };
+    const r = findNode(n.children || [], id, n);
+    if (r) return r;
+  }
+  return null;
+}
+function getList(c, pid) { return pid === 'root' ? c.items : findNode(c.items, pid).node.children; }
+function hasLocked(n) { return n.locked || (n.children || []).some(hasLocked); }
+
+/* Nombre para una evaluación nueva: toma el nombre de la última del grupo y le sube el número.
+   "Laboratorio 1" → "Laboratorio 2", "EA5" → "EA6", "Parcial" → "Parcial 1". */
+function nextName(list) {
+  if (!list.length) return 'Evaluación 1';
+  const last = String(list[list.length - 1].name || '').trim() || 'Evaluación';
+  const m = last.match(/^(.*?)(\s*)(\d+)$/);
+  const base = m ? m[1] : last;
+  const sep = m ? m[2] : ' ';
+  // Evita repetir: busca el número más alto con esa misma base dentro del grupo
+  let max = 0;
+  for (const n of list) {
+    const nm = String(n.name || '').trim();
+    const mm = nm.match(/^(.*?)\s*(\d+)$/);
+    if (mm && mm[1].trim() === base.trim()) max = Math.max(max, Number(mm[2]));
+  }
+  return `${base}${sep}${max + 1}`;
+}
+
+/* Evaluaciones finales (las que llevan nota) con su peso efectivo sobre el curso */
+function leaves(list, factor = 1, out = []) {
+  for (const n of list) {
+    const ew = factor * (Number(n.weight) || 0) / 100;
+    if (isLeaf(n)) out.push({ node: n, ew });
+    else leaves(n.children, ew, out);
+  }
+  return out;
+}
+const sumW = list => list.reduce((a, n) => a + (Number(n.weight) || 0), 0);
+
+function weightIssues(list, label = 'Nivel principal', out = []) {
+  if (list.length) { const s = sumW(list); if (Math.abs(s - 100) > EPS) out.push({ label, sum: s }); }
+  for (const n of list) if (!isLeaf(n)) weightIssues(n.children, n.name || '(sin nombre)', out);
+  return out;
+}
+
+/* ============ Cálculos ============ */
+function calc(c) {
+  const ls = leaves(c.items);
+  let lockedPts = 0, lockedW = 0, filledPts = 0, filledW = 0, totalW = 0;
+  for (const { node, ew } of ls) {
+    totalW += ew;
+    if (node.grade != null && isFinite(node.grade)) {
+      filledPts += node.grade * ew; filledW += ew;
+      if (node.locked) { lockedPts += node.grade * ew; lockedW += ew; }
+    }
+  }
+  const remW = totalW - lockedW, emptyW = totalW - filledW;
+  const needLocked = remW > 1e-9 ? (c.pass - lockedPts) / remW : null;   // promedio necesario en lo NO asegurado
+  const needEmpty = emptyW > 1e-9 ? (c.pass - filledPts) / emptyW : null; // promedio necesario en lo vacío (con simulaciones)
+  const progress = c.pass > 0 ? Math.min(1, Math.max(0, lockedPts / c.pass)) : 0;
+  let status;
+  if (!ls.length) status = { k: 'none', t: 'Sin configurar' };
+  else if (lockedPts >= c.pass - 1e-9) status = { k: 'ok', t: 'Aprobado asegurado' };
+  else if (remW <= 1e-9) status = { k: 'bad', t: 'Desaprobado' };
+  else if (needLocked > c.max + 1e-9) status = { k: 'bad', t: 'Ya no alcanza' };
+  else if (needLocked > c.max * 0.7) status = { k: 'warn', t: 'En riesgo' };
+  else status = { k: 'mid', t: 'En curso' };
+  return { ls, lockedPts, lockedW, filledPts, filledW, totalW, remW, emptyW, needLocked, needEmpty, progress, status };
+}
+
+/* Promedio de un grupo según lo llenado (frac = parte del grupo que ya tiene nota) */
+function groupValue(n) {
+  if (isLeaf(n)) return (n.grade != null && isFinite(n.grade)) ? { val: n.grade, frac: 1 } : { val: null, frac: 0 };
+  let pts = 0, w = 0, tw = 0;
+  for (const ch of n.children) {
+    const cw = (Number(ch.weight) || 0) / 100; tw += cw;
+    const r = groupValue(ch);
+    if (r.val != null) { pts += r.val * cw * r.frac; w += cw * r.frac; }
+  }
+  return { val: w > 1e-9 ? pts / w : null, frac: tw > 0 ? w / tw : 0 };
+}
+
+/* ============ UI base ============ */
+function setHeader(title, backHref, actions = '') {
+  $('#title').textContent = title;
+  const b = $('#back');
+  if (backHref) { b.hidden = false; b.href = backHref; } else b.hidden = true;
+  $('#topActions').innerHTML = actions;
+}
+let toastT;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2400);
+}
+let modalGen = 0;
+function modal({ title, body, actions }) {
+  const gen = ++modalGen;
+  $('#mTitle').textContent = title;
+  $('#mBody').innerHTML = body;
+  const a = $('#mActions'); a.innerHTML = '';
+  actions.forEach(act => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (act.primary ? ' primary' : '') + (act.danger ? ' danger' : '');
+    b.textContent = act.t;
+    if (act.primary) b.dataset.primary = '1';
+    b.onclick = () => {
+      if (act.fn) { const r = act.fn(); if (r === false) return; }
+      if (modalGen === gen) closeModal();
+    };
+    a.appendChild(b);
+  });
+  $('#modal').hidden = false;
+  const f = $('#mBody input');
+  if (f) setTimeout(() => f.focus(), 60);
+}
+function closeModal() { $('#modal').hidden = true; modalGen++; }
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+$('#mBody').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const p = $('#mActions [data-primary]'); if (p) p.click(); }
+});
+
+/* ============ Router ============ */
+function route() {
+  const p = (location.hash.slice(1) || '/').split('/').filter(Boolean);
+  const c = p[0] === 'curso' ? findCourse(p[1]) : null;
+  if (c && p[2] === 'config') renderConfig(c);
+  else if (c) renderCourse(c);
+  else renderHome();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+
+/* ============ Inicio: lista de cursos ============ */
+function renderHome() {
+  setHeader('Mis Notas', null, `<button class="icon-btn" id="menuBtn" aria-label="Opciones">⋯</button>`);
+  const app = $('#app');
+  let html;
+  if (!state.courses.length) {
+    html = `<div class="empty"><div class="big">📚</div><p><b>Aún no tienes cursos</b></p>
+      <p class="muted">Crea uno y configura sus evaluaciones y pesos.</p></div>`;
+  } else {
+    html = `<div class="list">${state.courses.map(c => {
+      const r = calc(c);
+      return `<a class="course-row" href="#/curso/${c.id}">
+        <div class="cr-top"><span class="cr-name">${esc(c.name)}</span><span class="chip ${r.status.k}">${r.status.t}</span></div>
+        <div class="bar ${r.status.k === 'ok' ? 'ok' : ''}"><div style="width:${r.progress * 100}%"></div></div>
+        <div class="cr-meta"><span>${fmt(r.progress * 100, 0)}% de aprobado</span>
+        <span>Asegurado: ${fmt(r.lockedPts)} / ${fmt(c.pass)}</span></div></a>`;
+    }).join('')}</div>`;
+  }
+  html += `<button class="fab" id="addCourse">+ Nuevo curso</button>`;
+  app.innerHTML = html;
+  $('#addCourse').onclick = addCourse;
+  $('#menuBtn').onclick = backupMenu;
+}
+
+function addCourse() {
+  modal({
+    title: 'Nuevo curso',
+    body: `<label>Nombre del curso<input id="ncName" placeholder="Ej. Cálculo I" autocomplete="off"></label>
+      <div class="row2"><label>Nota máxima<input id="ncMax" inputmode="decimal" value="20"></label>
+      <label>Nota para aprobar<input id="ncPass" inputmode="decimal" value="10.5"></label></div>`,
+    actions: [{ t: 'Cancelar' }, { t: 'Crear', primary: true, fn: () => {
+      const name = $('#ncName').value.trim();
+      const max = parseNum($('#ncMax').value), pass = parseNum($('#ncPass').value);
+      if (!name) { toast('Escribe un nombre'); return false; }
+      if (!(max > 0) || !(pass > 0) || pass > max) { toast('Revisa la nota máxima y la aprobatoria'); return false; }
+      const c = { id: uid(), name, max, pass, items: [] };
+      state.courses.push(c); save();
+      location.hash = `#/curso/${c.id}/config`;
+    } }]
+  });
+}
+
+function backupMenu() {
+  modal({
+    title: 'Respaldo de datos',
+    body: `<p class="muted small">Tus notas se guardan solo en este dispositivo/navegador. Descarga un respaldo para no perderlas o para pasarlas a otro dispositivo.</p>`,
+    actions: [
+      { t: 'Descargar respaldo', fn: exportData },
+      { t: 'Importar respaldo', fn: () => $('#importFile').click() },
+      { t: 'Cerrar', primary: true }
+    ]
+  });
+}
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `mis-notas-respaldo-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('#importFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const s = JSON.parse(rd.result);
+      if (!s || !Array.isArray(s.courses)) throw 0;
+      modal({
+        title: '¿Reemplazar datos?',
+        body: `<p>El respaldo tiene <b>${s.courses.length}</b> curso(s). Se reemplazará todo lo que tienes ahora.</p>`,
+        actions: [{ t: 'Cancelar' }, { t: 'Reemplazar', primary: true, fn: () => { state = s; save(); route(); toast('Respaldo importado'); } }]
+      });
+    } catch (err) { toast('Archivo no válido'); }
+  };
+  rd.readAsText(f); e.target.value = '';
+});
+
+/* ============ Curso: ingresar notas ============ */
+function renderCourse(c) {
+  setHeader(c.name, '#/', `<a class="icon-btn" href="#/curso/${c.id}/config" aria-label="Configurar">⚙︎</a>`);
+  const issues = weightIssues(c.items);
+  let html = `<section class="summary" id="summary"></section>`;
+  if (issues.length) {
+    html += `<div class="alert warn">⚠️ Los pesos no suman 100% en: ${issues.map(i => `<b>${esc(i.label)}</b> (${fmt(i.sum)}%)`).join(', ')}.
+      Los cálculos no serán correctos. <a href="#/curso/${c.id}/config">Corregir</a></div>`;
+  }
+  if (!c.items.length) {
+    html += `<div class="empty"><p>Este curso aún no tiene evaluaciones.</p>
+      <a class="btn primary" href="#/curso/${c.id}/config">Configurar evaluaciones</a></div>`;
+  } else {
+    html += `<div class="tree">${c.items.map(n => gradeNodeHTML(n, 1)).join('')}</div>
+      <p class="muted small" style="margin-top:14px">🔒 Nota oficial asegurada · 🔓 Nota de prueba (simulación). Toca 🔓 para asegurar una nota que ya te dieron.</p>`;
+  }
+  $('#app').innerHTML = html;
+  updateLive(c);
+
+  $('#app').querySelectorAll('input.grade').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const { node } = findNode(c.items, inp.dataset.id);
+      if (node.locked) return;
+      const v = parseNum(inp.value);
+      const bad = v != null && (isNaN(v) || v < 0 || v > c.max);
+      inp.classList.toggle('invalid', bad);
+      node.grade = (v == null || bad) ? null : v;
+      save(); updateLive(c);
+    });
+  });
+  $('#app').querySelectorAll('[data-lock]').forEach(b => b.onclick = () => lockFlow(c, b.dataset.lock));
+}
+
+function gradeNodeHTML(n, factor) {
+  const ew = factor * (Number(n.weight) || 0) / 100;
+  const wInfo = `${fmt(n.weight)}%${factor !== 1 ? ` · ${fmt(ew * 100)}% del curso` : ''}`;
+  if (isLeaf(n)) {
+    return `<div class="leaf ${n.locked ? 'locked' : ''}">
+      <div class="leaf-info"><div class="leaf-name">${esc(n.name)}</div><div class="leaf-w">${wInfo}</div>
+      <div class="need" data-need="${n.id}"></div></div>
+      <input class="grade" data-id="${n.id}" inputmode="decimal" autocomplete="off" placeholder="—"
+        value="${n.grade != null ? n.grade : ''}" ${n.locked ? 'disabled' : ''} aria-label="Nota de ${esc(n.name)}">
+      <button class="lock-btn" data-lock="${n.id}" ${n.locked ? 'disabled' : ''} aria-label="${n.locked ? 'Asegurada' : 'Asegurar'}">${n.locked ? '🔒' : '🔓'}</button>
+    </div>`;
+  }
+  return `<div class="group">
+    <div class="group-head"><div><div class="group-name">${esc(n.name)}</div><div class="leaf-w">${wInfo}</div></div>
+    <div class="group-val" data-gv="${n.id}"></div></div>
+    <div class="group-body">${n.children.map(ch => gradeNodeHTML(ch, ew)).join('')}</div>
+  </div>`;
+}
+
+function updateLive(c) {
+  const r = calc(c);
+  const sum = $('#summary'); if (!sum) return;
+  const finalDone = r.ls.length && r.emptyW <= 1e-9;
+  const msgs = [];
+  if (r.ls.length) {
+    if (r.status.k === 'ok') msgs.push(['ok', `🎉 Ya aseguraste el aprobado. Aunque saques ${fmt(0)} en lo que falta, apruebas.`]);
+    else if (r.remW <= 1e-9) msgs.push(['bad', `Todas las notas están aseguradas. Nota final: <b>${fmt(r.lockedPts)}</b>.`]);
+    else if (r.needLocked > c.max + 1e-9) msgs.push(['bad', `Necesitarías un promedio de <b>${fmt(r.needLocked)}</b> en el ${fmt(r.remW * 100)}% restante, pero el máximo es ${fmt(c.max)}. Ya no es posible aprobar.`]);
+    else msgs.push([r.status.k === 'warn' ? 'warn' : '', `Necesitas un promedio de <b>${fmt(r.needLocked)}</b> en el ${fmt(r.remW * 100)}% del curso que aún no está asegurado.`]);
+    const hasSim = r.filledW - r.lockedW > 1e-9;
+    if (hasSim && r.emptyW > 1e-9 && r.status.k !== 'ok') {
+      if (r.needEmpty <= 0) msgs.push(['ok', `Con tus notas de prueba ya llegarías a aprobar, aunque saques 0 en lo que dejaste vacío.`]);
+      else if (r.needEmpty > c.max) msgs.push(['bad', `Con tus notas de prueba no alcanzas: en lo vacío necesitarías <b>${fmt(r.needEmpty)}</b>.`]);
+      else msgs.push(['', `Con tus notas de prueba, en lo que dejaste vacío (${fmt(r.emptyW * 100)}%) necesitas un promedio de <b>${fmt(r.needEmpty)}</b>.`]);
+    }
+    if (finalDone && hasSim) {
+      const ok = r.filledPts >= c.pass - 1e-9;
+      msgs.push([ok ? 'ok' : 'bad', `Con esta simulación tu nota final sería <b>${fmt(r.filledPts)}</b>: ${ok ? 'apruebas ✅' : 'no apruebas ❌'}.`]);
+    }
+  }
+  sum.innerHTML = `
+    <div class="sum-top"><div><div class="label">Vas de aprobado</div><div class="bigpct">${fmt(r.progress * 100, 0)}%</div></div>
+      <span class="chip ${r.status.k}">${r.status.t}</span></div>
+    <div class="bar ${r.status.k === 'ok' ? 'ok' : ''}"><div style="width:${r.progress * 100}%"></div></div>
+    <div class="stats">
+      <div><span>Asegurado</span><b>${fmt(r.lockedPts)}</b><small>de ${fmt(c.pass)} para aprobar</small></div>
+      <div><span>${finalDone ? 'Nota final' : 'Acumulado'}</span><b>${r.ls.length ? fmt(r.filledPts) : '—'}</b>
+        <small>${finalDone ? 'con todas tus notas' : `faltan ${fmt(r.emptyW * 100)}%`}</small></div>
+      <div><span>Evaluado</span><b>${fmt(r.lockedW * 100, 0)}%</b><small>asegurado del curso</small></div>
+    </div>
+    ${msgs.map(([k, t]) => `<div class="need-msg ${k}">${t}</div>`).join('')}`;
+
+  // Pista en cada evaluación vacía
+  for (const { node } of r.ls) {
+    const el = document.querySelector(`[data-need="${node.id}"]`); if (!el) continue;
+    if (node.grade != null || r.needEmpty == null) { el.textContent = ''; el.className = 'need'; continue; }
+    if (r.needEmpty <= 0) { el.textContent = 'Ya cubierto ✓'; el.className = 'need ok'; }
+    else if (r.needEmpty > c.max) { el.textContent = `Necesitarías ${fmt(r.needEmpty)} (no alcanza)`; el.className = 'need bad'; }
+    else { el.textContent = `Necesitas ≥ ${fmt(r.needEmpty)}`; el.className = 'need'; }
+  }
+  // Promedio de cada grupo
+  document.querySelectorAll('[data-gv]').forEach(el => {
+    const { node } = findNode(c.items, el.dataset.gv);
+    const g = groupValue(node);
+    if (g.val == null) el.innerHTML = `—<small>sin notas</small>`;
+    else if (g.frac >= 1 - 1e-9) el.innerHTML = `${fmt(g.val)}<small>promedio</small>`;
+    else el.innerHTML = `${fmt(g.val)}<small>parcial · ${fmt(g.frac * 100, 0)}% lleno</small>`;
+  });
+}
+
+/* Doble verificación para asegurar una nota */
+function lockFlow(c, id) {
+  const { node } = findNode(c.items, id);
+  const v = node.grade;
+  if (v == null) { toast('Primero escribe la nota que te dieron'); return; }
+  modal({
+    title: '¿Asegurar esta nota?',
+    body: `<p>Vas a registrar <b>${fmt(v)}</b> en <b>${esc(node.name)}</b> como nota oficial.</p>
+      <p class="muted small">Una vez asegurada ya no podrás cambiarla.</p>`,
+    actions: [{ t: 'Cancelar' }, { t: 'Continuar', primary: true, fn: () => {
+      modal({
+        title: 'Confirmación final',
+        body: `<p>Para confirmar, vuelve a escribir la nota de <b>${esc(node.name)}</b>:</p>
+          <input id="confirmInp" class="grade wide" inputmode="decimal" autocomplete="off" placeholder="Nota">`,
+        actions: [{ t: 'Cancelar' }, { t: 'Asegurar 🔒', primary: true, fn: () => {
+          const x = parseNum($('#confirmInp').value);
+          if (x == null || isNaN(x) || Math.abs(x - v) > 1e-9) { toast('La nota no coincide. Revisa e intenta de nuevo.'); return false; }
+          node.locked = true; save(); renderCourse(c); toast('Nota asegurada 🔒');
+        } }]
+      });
+    } }]
+  });
+}
+
+/* ============ Configuración del curso ============ */
+function renderConfig(c) {
+  setHeader('Configurar curso', `#/curso/${c.id}`);
+  $('#app').innerHTML = `
+    <section class="card">
+      <label>Nombre del curso<input id="cName" value="${esc(c.name)}" autocomplete="off"></label>
+      <div class="row2">
+        <label>Nota máxima<input id="cMax" inputmode="decimal" value="${c.max}"></label>
+        <label>Nota para aprobar<input id="cPass" inputmode="decimal" value="${c.pass}"></label>
+      </div>
+    </section>
+    <h2 class="section-title">Evaluaciones y pesos</h2>
+    <p class="muted small">Cada grupo debe sumar 100%. Usa <b>Subdividir</b> para que una evaluación se calcule a partir de otras internas (solo las de último nivel llevarán nota).</p>
+    ${cfgListHTML(c.items, 'root')}
+    ${!c.items.length ? `<button class="btn block" id="tpl">Cargar ejemplo (Final, Parcial, Evaluaciones continuas…)</button>` : ''}
+    <a class="btn primary block" href="#/curso/${c.id}">Listo</a>
+    <div class="danger-zone"><button class="btn danger sm" id="delCourse">Eliminar curso</button></div>`;
+  updateSums(c);
+
+  $('#cName').oninput = e => { c.name = e.target.value.trim() || 'Sin nombre'; save(); };
+  $('#cMax').oninput = e => { const v = parseNum(e.target.value); if (v > 0) { c.max = v; save(); } };
+  $('#cPass').oninput = e => { const v = parseNum(e.target.value); if (v > 0) { c.pass = v; save(); } };
+
+  const app = $('#app');
+  app.querySelectorAll('[data-name]').forEach(inp => inp.oninput = () => {
+    findNode(c.items, inp.dataset.name).node.name = inp.value; save();
+  });
+  app.querySelectorAll('[data-w]').forEach(inp => inp.oninput = () => {
+    const v = parseNum(inp.value);
+    findNode(c.items, inp.dataset.w).node.weight = (v == null || isNaN(v)) ? 0 : v;
+    save(); updateSums(c);
+  });
+  app.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+    const list = getList(c, b.dataset.add);
+    const rest = Math.max(0, round2(100 - sumW(list)));
+    list.push(newNode(nextName(list), rest));
+    save(); renderConfig(c);
+  });
+  app.querySelectorAll('[data-split]').forEach(b => b.onclick = () => {
+    const list = getList(c, b.dataset.split);
+    const w = 100 / list.length;
+    modal({
+      title: 'Repartir peso igual',
+      body: `<p>¿Asignar <b>${fmt(w)}%</b> a cada una de las ${list.length} evaluaciones de este grupo?</p>`,
+      actions: [{ t: 'Cancelar' }, { t: 'Aplicar', primary: true, fn: () => {
+        list.forEach(n => n.weight = w); save(); renderConfig(c);
+      } }]
+    });
+  });
+  app.querySelectorAll('[data-divide]').forEach(b => b.onclick = () => {
+    const { node } = findNode(c.items, b.dataset.divide);
+    node.grade = null; node.locked = false;
+    const base = String(node.name || '').trim() || 'Evaluación';
+    node.children.push(newNode(`${base} 1`, 100));
+    save(); renderConfig(c);
+  });
+  app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    const f = findNode(c.items, b.dataset.del);
+    const doDel = () => { f.list.splice(f.list.indexOf(f.node), 1); save(); renderConfig(c); };
+    if (!isLeaf(f.node) || hasLocked(f.node)) {
+      modal({
+        title: '¿Eliminar evaluación?',
+        body: `<p>Se eliminará <b>${esc(f.node.name)}</b>${!isLeaf(f.node) ? ' y todas sus evaluaciones internas' : ''}${hasLocked(f.node) ? ', <b>incluidas notas aseguradas</b>' : ''}.</p>`,
+        actions: [{ t: 'Cancelar' }, { t: 'Eliminar', danger: true, fn: doDel }]
+      });
+    } else doDel();
+  });
+  const tpl = $('#tpl');
+  if (tpl) tpl.onclick = () => { c.items = exampleTemplate(); save(); renderConfig(c); };
+  $('#delCourse').onclick = () => modal({
+    title: '¿Eliminar curso?',
+    body: `<p>Se borrará <b>${esc(c.name)}</b> con todas sus notas. No se puede deshacer.</p>`,
+    actions: [{ t: 'Cancelar' }, { t: 'Eliminar', danger: true, fn: () => {
+      state.courses = state.courses.filter(x => x !== c); save(); location.hash = '#/';
+    } }]
+  });
+}
+
+function cfgListHTML(list, pid) {
+  return `<div class="cfg-list ${pid === 'root' ? 'root' : ''}">
+    ${list.map(cfgNodeHTML).join('')}
+    <div class="cfg-foot"><span class="sum" data-sum="${pid}"></span>
+      <div class="cfg-foot-btns">
+        ${list.length > 1 ? `<button class="btn sm" data-split="${pid}">Repartir igual</button>` : ''}
+        <button class="btn sm" data-add="${pid}">+ Agregar</button>
+      </div></div>
+  </div>`;
+}
+function cfgNodeHTML(n) {
+  return `<div class="cfg-node">
+    <div class="cfg-row">
+      <input class="cfg-name" data-name="${n.id}" value="${esc(n.name)}" placeholder="Nombre" autocomplete="off">
+      <div class="pct"><input class="cfg-w" data-w="${n.id}" inputmode="decimal" value="${round2(Number(n.weight) || 0)}"><span>%</span></div>
+    </div>
+    <div class="cfg-actions">
+      ${n.locked ? `<span class="tag">🔒 Nota asegurada: ${fmt(n.grade)}</span>` : isLeaf(n) ? `<button class="link" data-divide="${n.id}">↳ Subdividir</button>` : ''}
+      <button class="link danger" data-del="${n.id}">Eliminar</button>
+    </div>
+    ${!isLeaf(n) ? cfgListHTML(n.children, n.id) : ''}
+  </div>`;
+}
+function updateSums(c) {
+  const check = (list, pid) => {
+    const el = document.querySelector(`[data-sum="${pid}"]`);
+    if (el) {
+      if (!list.length) { el.textContent = ''; }
+      else {
+        const s = sumW(list), ok = Math.abs(s - 100) <= EPS;
+        el.className = 'sum ' + (ok ? 'ok' : 'bad');
+        el.textContent = ok ? '✓ Suma 100%' : `⚠️ Suman ${fmt(s)}%, deben sumar 100%`;
+      }
+    }
+    list.forEach(n => { if (!isLeaf(n)) check(n.children, n.id); });
+  };
+  check(c.items, 'root');
+}
+function exampleTemplate() {
+  const eas = () => [1, 2, 3, 4, 5].map(i => newNode(`EA${i}`, 20));
+  const ec1 = newNode('Evaluaciones continuas 1', 50); ec1.children = eas();
+  const ec2 = newNode('Evaluaciones continuas 2', 50); ec2.children = eas();
+  const ec = newNode('Evaluaciones continuas', 20); ec.children = [ec1, ec2];
+  return [newNode('Examen final', 40), newNode('Parcial', 40), ec];
+}
+
+route();
+</script>
+</body>
+</html>
