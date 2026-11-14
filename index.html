@@ -2,9 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#4f46e5">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Mis Notas</title>
 <style>
 :root{
@@ -22,9 +26,12 @@
   }
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
-  -webkit-text-size-adjust:100%;padding-bottom:calc(90px + env(safe-area-inset-bottom))}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
+body{position:fixed;inset:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* Un solo contenedor de scroll: evita saltos/rebotes al deslizar en el celular */
+#scroller{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding-bottom:calc(90px + env(safe-area-inset-bottom))}
 a{color:var(--primary)}
 .top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:12px 14px;
   padding-top:calc(12px + env(safe-area-inset-top));background:var(--bg);border-bottom:1px solid var(--line)}
@@ -141,15 +148,54 @@ label input:focus,.cfg-name:focus,.cfg-w:focus{outline:none;border-color:var(--p
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;background:var(--text);color:var(--bg);
   padding:10px 16px;border-radius:999px;font-size:.88rem;font-weight:600;max-width:90vw;text-align:center}
 .toast[hidden]{display:none}
+
+/* cuadros de las secciones principales */
+.heads-title{font-size:.78rem;color:var(--muted);font-weight:700;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.03em}
+.heads{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.head-card{background:var(--bg);border-radius:10px;padding:10px;border:1.5px solid transparent;min-width:0}
+.head-card .hc-name{font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.head-card .hc-w{font-size:.68rem;color:var(--muted)}
+.head-card .hc-val{font-size:1.5rem;font-weight:800;margin-top:2px}
+.head-card .hc-sub{font-size:.68rem;color:var(--muted)}
+.head-card.ok{border-color:var(--ok)} .head-card.ok .hc-val{color:var(--ok)}
+.head-card.bad{border-color:var(--bad)} .head-card.bad .hc-val{color:var(--bad)}
+.head-card.partial .hc-val{color:var(--muted)}
+
+/* candado: mantener presionado para desbloquear */
+.lock-btn{position:relative;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.lock-btn.on{border-color:var(--ok);background:var(--ok-soft)}
+.lock-btn::after{content:"";position:absolute;left:0;right:0;bottom:0;height:0;background:rgba(220,38,38,.35)}
+.lock-btn.holding::after{height:100%;transition:height var(--hold,2s) linear}
+input.grade.is-locked{-webkit-text-fill-color:var(--ok);color:var(--ok);border-color:var(--ok);background:transparent;caret-color:transparent}
+
+/* reordenar bloques */
+.cfg-head{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.cfg-head input{-webkit-user-select:text;user-select:text}
+.grip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:42px;flex-shrink:0;color:var(--muted);
+  font-size:1.1rem;cursor:grab;touch-action:none;margin-left:-4px}
+.cfg-node.dragging{outline:2px solid var(--primary);box-shadow:0 10px 30px rgba(79,70,229,.25)!important;opacity:.95;position:relative;z-index:5}
+body.is-dragging,body.is-dragging *{cursor:grabbing!important}
+.cfg-tools{display:flex;gap:8px;margin-top:14px}
+.cfg-tools .btn{flex:1}
+
+/* solo vertical */
+.rotate{display:none}
+@media (orientation:landscape) and (max-height:520px) and (pointer:coarse){
+  .rotate{display:flex;position:fixed;inset:0;z-index:200;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px}
+  .rotate .big{font-size:3rem}
+}
 </style>
 </head>
 <body>
+<div id="scroller">
 <header class="top">
   <a id="back" class="icon-btn" hidden aria-label="Volver">‹</a>
   <h1 id="title">Mis Notas</h1>
   <div id="topActions"></div>
 </header>
 <main id="app"></main>
+</div>
+<div class="rotate"><div class="big">📱</div><b>Gira tu teléfono</b><span class="muted">Esta app se usa solo en vertical.</span></div>
 
 <div id="modal" class="modal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true">
@@ -237,15 +283,37 @@ function weightIssues(list, label = 'Nivel principal', out = []) {
 }
 
 /* ============ Cálculos ============ */
-function calc(c) {
-  const ls = leaves(c.items);
-  let lockedPts = 0, lockedW = 0, filledPts = 0, filledW = 0, totalW = 0;
+/* Redondeo de las secciones principales: 10.5 → 11, 10.4 → 10 */
+const roundHalf = x => Math.floor(x + 0.5 + 1e-9);
+const hasGrade = n => n.grade != null && isFinite(n.grade);
+
+/* Información de una sección principal (cabeza) */
+function headInfo(n) {
+  const ls = leaves([n]);
+  let tw = 0, fp = 0, fw = 0, lp = 0, lw = 0;
   for (const { node, ew } of ls) {
-    totalW += ew;
-    if (node.grade != null && isFinite(node.grade)) {
-      filledPts += node.grade * ew; filledW += ew;
-      if (node.locked) { lockedPts += node.grade * ew; lockedW += ew; }
-    }
+    tw += ew;
+    if (hasGrade(node)) { fp += node.grade * ew; fw += ew; if (node.locked) { lp += node.grade * ew; lw += ew; } }
+  }
+  const complete = tw > 1e-12 && fw >= tw - 1e-9;
+  const lockedAll = tw > 1e-12 && lw >= tw - 1e-9;
+  return {
+    n, ls, tw, fp, fw, lp, lw, complete, lockedAll,
+    raw: complete ? fp / tw : (fw > 1e-12 ? fp / fw : null),   // con decimales
+    rounded: complete ? roundHalf(fp / tw) : null,              // redondeada
+    frac: tw > 1e-12 ? fw / tw : 0
+  };
+}
+
+function calc(c) {
+  const heads = c.items.map(headInfo);
+  const ls = heads.flatMap(h => h.ls);
+  let lockedPts = 0, lockedW = 0, filledPts = 0, filledW = 0, totalW = 0;
+  for (const h of heads) {
+    totalW += h.tw; filledW += h.fw; lockedW += h.lw;
+    // Sección completa: cuenta su nota redondeada; si no, lo que lleva
+    filledPts += h.complete ? h.rounded * h.tw : h.fp;
+    lockedPts += h.lockedAll ? roundHalf(h.lp / h.tw) * h.tw : h.lp;
   }
   const remW = totalW - lockedW, emptyW = totalW - filledW;
   const needLocked = remW > 1e-9 ? (c.pass - lockedPts) / remW : null;   // promedio necesario en lo NO asegurado
@@ -258,7 +326,7 @@ function calc(c) {
   else if (needLocked > c.max + 1e-9) status = { k: 'bad', t: 'Ya no alcanza' };
   else if (needLocked > c.max * 0.7) status = { k: 'warn', t: 'En riesgo' };
   else status = { k: 'mid', t: 'En curso' };
-  return { ls, lockedPts, lockedW, filledPts, filledW, totalW, remW, emptyW, needLocked, needEmpty, progress, status };
+  return { heads, ls, lockedPts, lockedW, filledPts, filledW, totalW, remW, emptyW, needLocked, needEmpty, progress, status };
 }
 
 /* Promedio de un grupo según lo llenado (frac = parte del grupo que ya tiene nota) */
@@ -319,8 +387,10 @@ function route() {
   if (c && p[2] === 'config') renderConfig(c);
   else if (c) renderCourse(c);
   else renderHome();
-  window.scrollTo(0, 0);
+  $('#scroller').scrollTop = 0;
 }
+/* Volver a dibujar sin perder la posición del scroll */
+function keepScroll(fn) { const s = $('#scroller'), y = s.scrollTop; fn(); s.scrollTop = y; }
 window.addEventListener('hashchange', route);
 
 /* ============ Inicio: lista de cursos ============ */
@@ -367,36 +437,67 @@ function addCourse() {
 
 function backupMenu() {
   modal({
-    title: 'Respaldo de datos',
-    body: `<p class="muted small">Tus notas se guardan solo en este dispositivo/navegador. Descarga un respaldo para no perderlas o para pasarlas a otro dispositivo.</p>`,
+    title: 'Opciones',
+    body: `<p class="muted small"><b>Importar curso:</b> carga el formato de un curso que alguien te compartió (nombres y pesos, sin notas).</p>
+      <p class="muted small"><b>Respaldo:</b> tus notas se guardan solo en este dispositivo. Descarga un respaldo para no perderlas o pasarlas a otro dispositivo.</p>`,
     actions: [
-      { t: 'Descargar respaldo', fn: exportData },
-      { t: 'Importar respaldo', fn: () => $('#importFile').click() },
+      { t: 'Importar curso o respaldo', fn: () => $('#importFile').click() },
+      { t: 'Descargar respaldo', fn: () => shareOrDownload(state, `mis-notas-respaldo-${new Date().toISOString().slice(0, 10)}.json`) },
       { t: 'Cerrar', primary: true }
     ]
   });
 }
-function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+/* En el celular abre el menú de compartir (WhatsApp, Drive…); si no, descarga el archivo */
+async function shareOrDownload(obj, filename) {
+  const json = JSON.stringify(obj, null, 2);
+  try {
+    const file = new File([json], filename, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: filename });
+      return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `mis-notas-respaldo-${new Date().toISOString().slice(0, 10)}.json`;
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+/* Formato de un curso: solo estructura, nombres y pesos (sin notas) */
+function courseTemplate(c) {
+  const strip = n => ({ name: n.name, weight: n.weight, children: (n.children || []).map(strip) });
+  return { type: 'prome-curso', version: 1, name: c.name, max: c.max, pass: c.pass, items: c.items.map(strip) };
+}
+function courseFromTemplate(t) {
+  const build = n => {
+    const node = newNode(String(n.name ?? 'Evaluación'), Number(n.weight) || 0);
+    node.children = Array.isArray(n.children) ? n.children.map(build) : [];
+    return node;
+  };
+  const max = Number(t.max) > 0 ? Number(t.max) : 20;
+  const pass = Number(t.pass) > 0 ? Number(t.pass) : 10.5;
+  return { id: uid(), name: String(t.name || 'Curso importado'), max, pass, items: (t.items || []).map(build) };
+}
+const safeFile = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'curso';
+
 $('#importFile').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   const rd = new FileReader();
   rd.onload = () => {
-    try {
-      const s = JSON.parse(rd.result);
-      if (!s || !Array.isArray(s.courses)) throw 0;
+    let s;
+    try { s = JSON.parse(rd.result); } catch (err) { toast('Archivo no válido'); return; }
+    if (s && s.type === 'prome-curso' && Array.isArray(s.items)) {
+      const c = courseFromTemplate(s);
+      state.courses.push(c); save();
+      location.hash = `#/curso/${c.id}`;
+      toast(`Curso "${c.name}" importado`);
+    } else if (s && Array.isArray(s.courses)) {
       modal({
         title: '¿Reemplazar datos?',
         body: `<p>El respaldo tiene <b>${s.courses.length}</b> curso(s). Se reemplazará todo lo que tienes ahora.</p>`,
         actions: [{ t: 'Cancelar' }, { t: 'Reemplazar', primary: true, fn: () => { state = s; save(); route(); toast('Respaldo importado'); } }]
       });
-    } catch (err) { toast('Archivo no válido'); }
+    } else toast('Archivo no válido');
   };
   rd.readAsText(f); e.target.value = '';
 });
@@ -431,7 +532,48 @@ function renderCourse(c) {
       save(); updateLive(c);
     });
   });
-  $('#app').querySelectorAll('[data-lock]').forEach(b => b.onclick = () => lockFlow(c, b.dataset.lock));
+  // Nota asegurada: tocar el recuadro no deja cambiarla
+  $('#app').querySelectorAll('input.grade.is-locked').forEach(inp => {
+    inp.addEventListener('focus', () => inp.blur());
+    inp.addEventListener('click', () => toast('Nota asegurada 🔒 · Mantén presionado el candado 2 s para cambiarla'));
+  });
+  $('#app').querySelectorAll('[data-lock]').forEach(b => {
+    const { node } = findNode(c.items, b.dataset.lock);
+    if (!node.locked) {
+      // Un toque: asegurar
+      b.onclick = () => {
+        if (node.grade == null) { toast('Primero escribe la nota que te dieron'); return; }
+        node.locked = true; save();
+        if (navigator.vibrate) navigator.vibrate(20);
+        keepScroll(() => renderCourse(c));
+      };
+    } else {
+      // Mantener presionado 2 s: desbloquear
+      holdButton(b, 2000, () => {
+        node.locked = false; save();
+        if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+        keepScroll(() => renderCourse(c));
+        toast('Nota desbloqueada');
+      }, () => toast('Mantén presionado 2 s para desbloquear'));
+    }
+  });
+}
+
+function holdButton(el, ms, onDone, onShort) {
+  let t = null, start = 0;
+  el.style.setProperty('--hold', ms + 'ms');
+  const cancel = () => {
+    if (!t) return;
+    clearTimeout(t); t = null; el.classList.remove('holding');
+    if (Date.now() - start < 350 && onShort) onShort();
+  };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    start = Date.now(); el.classList.add('holding');
+    t = setTimeout(() => { t = null; el.classList.remove('holding'); onDone(); }, ms);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, cancel));
+  el.addEventListener('contextmenu', e => e.preventDefault());
 }
 
 function gradeNodeHTML(n, factor) {
@@ -441,9 +583,9 @@ function gradeNodeHTML(n, factor) {
     return `<div class="leaf ${n.locked ? 'locked' : ''}">
       <div class="leaf-info"><div class="leaf-name">${esc(n.name)}</div><div class="leaf-w">${wInfo}</div>
       <div class="need" data-need="${n.id}"></div></div>
-      <input class="grade" data-id="${n.id}" inputmode="decimal" autocomplete="off" placeholder="—"
-        value="${n.grade != null ? n.grade : ''}" ${n.locked ? 'disabled' : ''} aria-label="Nota de ${esc(n.name)}">
-      <button class="lock-btn" data-lock="${n.id}" ${n.locked ? 'disabled' : ''} aria-label="${n.locked ? 'Asegurada' : 'Asegurar'}">${n.locked ? '🔒' : '🔓'}</button>
+      <input data-id="${n.id}" inputmode="decimal" autocomplete="off" placeholder="—"
+        value="${n.grade != null ? n.grade : ''}" ${n.locked ? 'readonly tabindex="-1"' : ''} class="grade${n.locked ? ' is-locked' : ''}" aria-label="Nota de ${esc(n.name)}">
+      <button class="lock-btn${n.locked ? ' on' : ''}" data-lock="${n.id}" aria-label="${n.locked ? 'Asegurada: mantén presionado para desbloquear' : 'Asegurar'}">${n.locked ? '🔒' : '🔓'}</button>
     </div>`;
   }
   return `<div class="group">
@@ -481,9 +623,22 @@ function updateLive(c) {
     <div class="stats">
       <div><span>Asegurado</span><b>${fmt(r.lockedPts)}</b><small>de ${fmt(c.pass)} para aprobar</small></div>
       <div><span>${finalDone ? 'Nota final' : 'Acumulado'}</span><b>${r.ls.length ? fmt(r.filledPts) : '—'}</b>
-        <small>${finalDone ? 'con todas tus notas' : `faltan ${fmt(r.emptyW * 100)}%`}</small></div>
+        <small>${finalDone ? 'según secciones redondeadas' : `faltan ${fmt(r.emptyW * 100)}%`}</small></div>
       <div><span>Evaluado</span><b>${fmt(r.lockedW * 100, 0)}%</b><small>asegurado del curso</small></div>
     </div>
+    ${r.heads.length ? `<div class="heads-title">Notas por sección</div><div class="heads">${r.heads.map(h => {
+      let cls = 'partial', val = '—', sub = 'sin notas';
+      if (h.complete) {
+        cls = h.rounded >= c.pass - 1e-9 ? 'ok' : 'bad';
+        val = fmt(h.rounded, 0);
+        sub = h.lockedAll ? '🔒 asegurada' : 'con notas de prueba';
+      } else if (h.raw != null) {
+        val = fmt(roundHalf(h.raw), 0);
+        sub = `parcial · ${fmt(h.frac * 100, 0)}% lleno`;
+      }
+      return `<div class="head-card ${cls}"><div class="hc-name">${esc(h.n.name)}</div><div class="hc-w">${fmt(Number(h.n.weight) || 0)}% del curso</div>
+        <div class="hc-val">${val}</div><div class="hc-sub">${sub}</div></div>`;
+    }).join('')}</div>` : ''}
     ${msgs.map(([k, t]) => `<div class="need-msg ${k}">${t}</div>`).join('')}`;
 
   // Pista en cada evaluación vacía
@@ -504,30 +659,6 @@ function updateLive(c) {
   });
 }
 
-/* Doble verificación para asegurar una nota */
-function lockFlow(c, id) {
-  const { node } = findNode(c.items, id);
-  const v = node.grade;
-  if (v == null) { toast('Primero escribe la nota que te dieron'); return; }
-  modal({
-    title: '¿Asegurar esta nota?',
-    body: `<p>Vas a registrar <b>${fmt(v)}</b> en <b>${esc(node.name)}</b> como nota oficial.</p>
-      <p class="muted small">Una vez asegurada ya no podrás cambiarla.</p>`,
-    actions: [{ t: 'Cancelar' }, { t: 'Continuar', primary: true, fn: () => {
-      modal({
-        title: 'Confirmación final',
-        body: `<p>Para confirmar, vuelve a escribir la nota de <b>${esc(node.name)}</b>:</p>
-          <input id="confirmInp" class="grade wide" inputmode="decimal" autocomplete="off" placeholder="Nota">`,
-        actions: [{ t: 'Cancelar' }, { t: 'Asegurar 🔒', primary: true, fn: () => {
-          const x = parseNum($('#confirmInp').value);
-          if (x == null || isNaN(x) || Math.abs(x - v) > 1e-9) { toast('La nota no coincide. Revisa e intenta de nuevo.'); return false; }
-          node.locked = true; save(); renderCourse(c); toast('Nota asegurada 🔒');
-        } }]
-      });
-    } }]
-  });
-}
-
 /* ============ Configuración del curso ============ */
 function renderConfig(c) {
   setHeader('Configurar curso', `#/curso/${c.id}`);
@@ -543,6 +674,8 @@ function renderConfig(c) {
     <p class="muted small">Cada grupo debe sumar 100%. Usa <b>Subdividir</b> para que una evaluación se calcule a partir de otras internas (solo las de último nivel llevarán nota).</p>
     ${cfgListHTML(c.items, 'root')}
     ${!c.items.length ? `<button class="btn block" id="tpl">Cargar ejemplo (Final, Parcial, Evaluaciones continuas…)</button>` : ''}
+    ${c.items.length ? `<p class="muted small" style="margin-top:12px">↕️ Mantén presionado un bloque (o arrastra desde ⠿) para moverlo arriba o abajo.</p>
+    <div class="cfg-tools"><button class="btn" id="exportTpl">📤 Exportar formato</button></div>` : ''}
     <a class="btn primary block" href="#/curso/${c.id}">Listo</a>
     <div class="danger-zone"><button class="btn danger sm" id="delCourse">Eliminar curso</button></div>`;
   updateSums(c);
@@ -563,8 +696,10 @@ function renderConfig(c) {
   app.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
     const list = getList(c, b.dataset.add);
     const rest = Math.max(0, round2(100 - sumW(list)));
-    list.push(newNode(nextName(list), rest));
-    save(); renderConfig(c);
+    // Primera capa: nombre genérico (son secciones distintas). Capas internas: sigue la numeración.
+    const name = b.dataset.add === 'root' ? `Evaluación ${list.length + 1}` : nextName(list);
+    list.push(newNode(name, rest));
+    save(); keepScroll(() => renderConfig(c));
   });
   app.querySelectorAll('[data-split]').forEach(b => b.onclick = () => {
     const list = getList(c, b.dataset.split);
@@ -573,7 +708,7 @@ function renderConfig(c) {
       title: 'Repartir peso igual',
       body: `<p>¿Asignar <b>${fmt(w)}%</b> a cada una de las ${list.length} evaluaciones de este grupo?</p>`,
       actions: [{ t: 'Cancelar' }, { t: 'Aplicar', primary: true, fn: () => {
-        list.forEach(n => n.weight = w); save(); renderConfig(c);
+        list.forEach(n => n.weight = w); save(); keepScroll(() => renderConfig(c));
       } }]
     });
   });
@@ -582,11 +717,11 @@ function renderConfig(c) {
     node.grade = null; node.locked = false;
     const base = String(node.name || '').trim() || 'Evaluación';
     node.children.push(newNode(`${base} 1`, 100));
-    save(); renderConfig(c);
+    save(); keepScroll(() => renderConfig(c));
   });
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
     const f = findNode(c.items, b.dataset.del);
-    const doDel = () => { f.list.splice(f.list.indexOf(f.node), 1); save(); renderConfig(c); };
+    const doDel = () => { f.list.splice(f.list.indexOf(f.node), 1); save(); keepScroll(() => renderConfig(c)); };
     if (!isLeaf(f.node) || hasLocked(f.node)) {
       modal({
         title: '¿Eliminar evaluación?',
@@ -595,8 +730,11 @@ function renderConfig(c) {
       });
     } else doDel();
   });
+  const ex = $('#exportTpl');
+  if (ex) ex.onclick = () => shareOrDownload(courseTemplate(c), `formato-${safeFile(c.name)}.json`);
+  enableReorder(c);
   const tpl = $('#tpl');
-  if (tpl) tpl.onclick = () => { c.items = exampleTemplate(); save(); renderConfig(c); };
+  if (tpl) tpl.onclick = () => { c.items = exampleTemplate(); save(); keepScroll(() => renderConfig(c)); };
   $('#delCourse').onclick = () => modal({
     title: '¿Eliminar curso?',
     body: `<p>Se borrará <b>${esc(c.name)}</b> con todas sus notas. No se puede deshacer.</p>`,
@@ -606,8 +744,95 @@ function renderConfig(c) {
   });
 }
 
+/* Mantener presionado un bloque y moverlo arriba/abajo (se mueve con todo lo que tiene dentro) */
+let reorderCourse = null, reorderReady = false;
+function enableReorder(course) {
+  reorderCourse = course;
+  if (reorderReady) return;   // los eventos se instalan una sola vez
+  reorderReady = true;
+  const app = $('#app'), scroller = $('#scroller');
+  let drag = null, pressT = null, sx = 0, sy = 0, lastY = 0, raf = 0;
+
+  const siblingsOf = el => [...el.parentElement.children].filter(e => e.classList.contains('cfg-node'));
+  function begin(nodeEl) {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    drag = { el: nodeEl, list: nodeEl.parentElement };
+    nodeEl.classList.add('dragging');
+    document.body.classList.add('is-dragging');
+    if (navigator.vibrate) navigator.vibrate(25);
+    autoScroll();
+  }
+  function move(y) {
+    lastY = y;
+    if (!drag) return;
+    const others = siblingsOf(drag.el).filter(e => e !== drag.el);
+    let idx = 0;
+    for (const o of others) { const r = o.getBoundingClientRect(); if (y > r.top + r.height / 2) idx++; }
+    const ref = others[idx] || drag.list.querySelector(':scope > .cfg-foot');
+    if (ref !== drag.el.nextElementSibling) drag.list.insertBefore(drag.el, ref);
+  }
+  function autoScroll() {
+    if (!drag) return;
+    const h = window.innerHeight;
+    if (lastY < 90) scroller.scrollTop -= 12; else if (lastY > h - 90) scroller.scrollTop += 12;
+    move(lastY);
+    raf = requestAnimationFrame(autoScroll);
+  }
+  function end() {
+    clearTimeout(pressT); pressT = null;
+    if (!drag) return;
+    cancelAnimationFrame(raf);
+    const pid = drag.list.dataset.pid;
+    const order = siblingsOf(drag.el).map(e => e.dataset.id);
+    const c = reorderCourse;
+    const list = getList(c, pid);
+    list.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    drag.el.classList.remove('dragging');
+    document.body.classList.remove('is-dragging');
+    drag = null;
+    save(); keepScroll(() => renderConfig(c));
+  }
+  function headOf(target) {
+    if (!/\/config$/.test(location.hash)) return null;
+    const head = target.closest('.cfg-head');
+    if (!head || !app.contains(head)) return null;
+    const isGrip = !!target.closest('.grip');
+    if (!isGrip && target.closest('input,button')) return null; // en inputs/botones no
+    return { nodeEl: head.parentElement, isGrip };
+  }
+
+  // Táctil: mantener presionado ~0.4 s (o el ⠿) y deslizar
+  app.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    const h = headOf(e.target); if (!h) return;
+    const t = e.touches[0]; sx = t.clientX; sy = t.clientY; lastY = sy;
+    pressT = setTimeout(() => begin(h.nodeEl), h.isGrip ? 150 : 400);
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    const t = e.touches[0]; if (!t) return;
+    if (drag) { e.preventDefault(); move(t.clientY); return; }
+    if (pressT && (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10)) { clearTimeout(pressT); pressT = null; }
+  }, { passive: false });
+  document.addEventListener('touchend', end);
+  document.addEventListener('touchcancel', end);
+  app.addEventListener('contextmenu', e => { if (e.target.closest('.cfg-head') && !e.target.closest('input')) e.preventDefault(); });
+
+  // Mouse (computadora): arrastrar desde ⠿ o mantener presionado el bloque
+  app.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    const h = headOf(e.target); if (!h) return;
+    lastY = e.clientY; sx = e.clientX; sy = e.clientY;
+    if (h.isGrip) { e.preventDefault(); begin(h.nodeEl); } else pressT = setTimeout(() => begin(h.nodeEl), 400);
+  });
+  document.addEventListener('mousemove', e => {
+    if (drag) { e.preventDefault(); move(e.clientY); }
+    else if (pressT && (Math.abs(e.clientX - sx) > 6 || Math.abs(e.clientY - sy) > 6)) { clearTimeout(pressT); pressT = null; }
+  });
+  document.addEventListener('mouseup', end);
+}
+
 function cfgListHTML(list, pid) {
-  return `<div class="cfg-list ${pid === 'root' ? 'root' : ''}">
+  return `<div class="cfg-list ${pid === 'root' ? 'root' : ''}" data-pid="${pid}">
     ${list.map(cfgNodeHTML).join('')}
     <div class="cfg-foot"><span class="sum" data-sum="${pid}"></span>
       <div class="cfg-foot-btns">
@@ -617,14 +842,17 @@ function cfgListHTML(list, pid) {
   </div>`;
 }
 function cfgNodeHTML(n) {
-  return `<div class="cfg-node">
+  return `<div class="cfg-node" data-id="${n.id}">
+    <div class="cfg-head">
     <div class="cfg-row">
+      <span class="grip" aria-label="Mover">⠿</span>
       <input class="cfg-name" data-name="${n.id}" value="${esc(n.name)}" placeholder="Nombre" autocomplete="off">
       <div class="pct"><input class="cfg-w" data-w="${n.id}" inputmode="decimal" value="${round2(Number(n.weight) || 0)}"><span>%</span></div>
     </div>
     <div class="cfg-actions">
       ${n.locked ? `<span class="tag">🔒 Nota asegurada: ${fmt(n.grade)}</span>` : isLeaf(n) ? `<button class="link" data-divide="${n.id}">↳ Subdividir</button>` : ''}
       <button class="link danger" data-del="${n.id}">Eliminar</button>
+    </div>
     </div>
     ${!isLeaf(n) ? cfgListHTML(n.children, n.id) : ''}
   </div>`;
@@ -650,6 +878,16 @@ function exampleTemplate() {
   const ec2 = newNode('Evaluaciones continuas 2', 50); ec2.children = eas();
   const ec = newNode('Evaluaciones continuas', 20); ec.children = [ec1, ec2];
   return [newNode('Examen final', 40), newNode('Parcial', 40), ec];
+}
+
+/* Sin zoom (pellizcar) y solo vertical */
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+try { screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait').catch(() => {}); } catch (e) {}
+
+/* App instalable y que funcione sin internet */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
 route();
