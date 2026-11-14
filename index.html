@@ -178,6 +178,30 @@ body.is-dragging,body.is-dragging *{cursor:grabbing!important}
 .cfg-tools{display:flex;gap:8px;margin-top:14px}
 .cfg-tools .btn{flex:1}
 
+/* ciclos, menú y cierre */
+.list-title{font-size:.78rem;color:var(--muted);font-weight:700;margin:4px 2px 10px;text-transform:uppercase;letter-spacing:.03em}
+.cycle-row .chev{font-size:1.5rem;color:var(--muted);line-height:1}
+.cycle-row .cr-top{margin-bottom:4px}
+.course-row.closed{background:var(--bg)}
+.modal-actions:empty{display:none}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px;border-radius:14px;border:1.5px solid var(--line);
+  background:var(--bg);color:var(--text);font:inherit;cursor:pointer}
+.tile:active{border-color:var(--primary);background:var(--primary-soft)}
+.tile .ti{font-size:1.6rem}
+.tile b{font-size:1rem}
+.tile small{font-size:.74rem;color:var(--muted);line-height:1.3}
+.check-list{max-height:45vh;overflow-y:auto;overscroll-behavior:contain;margin-top:4px}
+.check{flex-direction:row;align-items:center;gap:10px;font-size:.95rem;color:var(--text);font-weight:500;margin:0;padding:10px 4px;border-bottom:1px solid var(--line)}
+.check input{width:20px;height:20px;accent-color:var(--primary);flex-shrink:0}
+.check.all{font-weight:700;border-bottom:2px solid var(--line)}
+.check-head{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin:12px 0 2px}
+.closed-banner{display:flex;align-items:center;gap:12px;padding:14px;border-radius:var(--radius);margin-bottom:14px;border:1.5px solid}
+.closed-banner .big{font-size:2rem}
+.closed-banner.ok{background:var(--ok-soft);border-color:var(--ok)} .closed-banner.bad{background:var(--bad-soft);border-color:var(--bad)}
+.close-box{display:flex;flex-direction:column;gap:10px;margin-top:16px;padding:14px;border-radius:var(--radius);background:var(--ok-soft);border:1.5px solid var(--ok)}
+.close-btn{background:var(--ok);border-color:var(--ok);color:#fff}
+
 /* solo vertical */
 .rotate{display:none}
 @media (orientation:landscape) and (max-height:520px) and (pointer:coarse){
@@ -205,7 +229,7 @@ body.is-dragging,body.is-dragging *{cursor:grabbing!important}
   </div>
 </div>
 <div id="toast" class="toast" hidden></div>
-<input type="file" id="importFile" accept="application/json,.json" hidden>
+<input type="file" id="importFile" accept="application/json,.json" multiple hidden>
 
 <script>
 /* ============ Datos ============ */
@@ -216,8 +240,13 @@ const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(3
 let state = load();
 
 function load() {
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.courses)) return s; } catch (e) {}
-  return { courses: [] };
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Array.isArray(s.cycles)) return s;
+    // Versión anterior (sin ciclos): pasa los cursos a un ciclo
+    if (s && Array.isArray(s.courses)) return { cycles: s.courses.length ? [{ id: uid(), name: 'Mi ciclo', courses: s.courses }] : [] };
+  } catch (e) {}
+  return { cycles: [] };
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast('No se pudo guardar en este dispositivo'); }
@@ -234,7 +263,10 @@ const parseNum = v => {
 };
 const isLeaf = n => !n.children || n.children.length === 0;
 const newNode = (name, weight) => ({ id: uid(), name, weight, children: [], grade: null, locked: false });
-const findCourse = id => state.courses.find(c => c.id === id);
+const allCourses = () => state.cycles.flatMap(y => y.courses);
+const findCourse = id => allCourses().find(c => c.id === id);
+const findCycle = id => state.cycles.find(y => y.id === id);
+const cycleOf = c => state.cycles.find(y => y.courses.includes(c));
 
 function findNode(list, id, parent = null) {
   for (const n of list) {
@@ -320,7 +352,8 @@ function calc(c) {
   const needEmpty = emptyW > 1e-9 ? (c.pass - filledPts) / emptyW : null; // promedio necesario en lo vacío (con simulaciones)
   const progress = c.pass > 0 ? Math.min(1, Math.max(0, lockedPts / c.pass)) : 0;
   let status;
-  if (!ls.length) status = { k: 'none', t: 'Sin configurar' };
+  if (c.closed) status = filledPts >= c.pass - 1e-9 ? { k: 'ok', t: 'Cerrado · Aprobado' } : { k: 'bad', t: 'Cerrado · Desaprobado' };
+  else if (!ls.length) status = { k: 'none', t: 'Sin configurar' };
   else if (lockedPts >= c.pass - 1e-9) status = { k: 'ok', t: 'Aprobado asegurado' };
   else if (remW <= 1e-9) status = { k: 'bad', t: 'Desaprobado' };
   else if (needLocked > c.max + 1e-9) status = { k: 'bad', t: 'Ya no alcanza' };
@@ -328,6 +361,8 @@ function calc(c) {
   else status = { k: 'mid', t: 'En curso' };
   return { heads, ls, lockedPts, lockedW, filledPts, filledW, totalW, remW, emptyW, needLocked, needEmpty, progress, status };
 }
+
+const isComplete = c => { const r = calc(c); return r.ls.length > 0 && r.emptyW <= 1e-9; };
 
 /* Promedio de un grupo según lo llenado (frac = parte del grupo que ya tiene nota) */
 function groupValue(n) {
@@ -383,27 +418,81 @@ $('#mBody').addEventListener('keydown', e => {
 /* ============ Router ============ */
 function route() {
   const p = (location.hash.slice(1) || '/').split('/').filter(Boolean);
-  const c = p[0] === 'curso' ? findCourse(p[1]) : null;
-  if (c && p[2] === 'config') renderConfig(c);
-  else if (c) renderCourse(c);
-  else renderHome();
+  if (p[0] === 'curso' && findCourse(p[1])) {
+    const c = findCourse(p[1]);
+    if (p[2] === 'config' && !c.closed) renderConfig(c); else renderCourse(c);
+  } else if (p[0] === 'ciclo' && findCycle(p[1])) renderCycle(findCycle(p[1]));
+  else renderCycles();
   $('#scroller').scrollTop = 0;
 }
 /* Volver a dibujar sin perder la posición del scroll */
 function keepScroll(fn) { const s = $('#scroller'), y = s.scrollTop; fn(); s.scrollTop = y; }
 window.addEventListener('hashchange', route);
 
-/* ============ Inicio: lista de cursos ============ */
-function renderHome() {
+/* ============ Inicio: ciclos ============ */
+function renderCycles() {
   setHeader('Mis Notas', null, `<button class="icon-btn" id="menuBtn" aria-label="Opciones">⋯</button>`);
-  const app = $('#app');
-  let html;
-  if (!state.courses.length) {
-    html = `<div class="empty"><div class="big">📚</div><p><b>Aún no tienes cursos</b></p>
+  let html = `<div class="list-title">Mis ciclos</div>`;
+  if (!state.cycles.length) {
+    html += `<div class="empty"><div class="big">🗓️</div><p><b>Aún no tienes ciclos</b></p>
+      <p class="muted">Crea tu ciclo actual (por ejemplo, 2026-2) y dentro agrega tus cursos.</p></div>`;
+  } else {
+    html += `<div class="list">${state.cycles.map(y => {
+      const n = y.courses.length;
+      const closed = y.courses.filter(c => c.closed).length;
+      const ok = y.courses.filter(c => { const r = calc(c); return r.status.k === 'ok'; }).length;
+      return `<a class="course-row cycle-row" href="#/ciclo/${y.id}">
+        <div class="cr-top"><span class="cr-name">🗓️ ${esc(y.name)}</span><span class="chev">›</span></div>
+        <div class="cr-meta"><span>${n} curso${n === 1 ? '' : 's'}</span>
+        <span>${ok} aprobado${ok === 1 ? '' : 's'}${closed ? ` · ${closed} cerrado${closed === 1 ? '' : 's'}` : ''}</span></div></a>`;
+    }).join('')}</div>`;
+  }
+  html += `<button class="fab" id="addCycle">+ Nuevo ciclo</button>`;
+  $('#app').innerHTML = html;
+  $('#addCycle').onclick = () => cycleModal(null);
+  $('#menuBtn').onclick = () => optionsMenu(null);
+}
+
+function cycleModal(y) {
+  modal({
+    title: y ? 'Editar ciclo' : 'Nuevo ciclo',
+    body: `<label>Nombre<input id="cyName" placeholder="Ej. 2026-2" autocomplete="off" value="${y ? esc(y.name) : ''}"></label>`,
+    actions: [
+      ...(y ? [{ t: 'Eliminar', danger: true, fn: () => {
+        modal({
+          title: '¿Eliminar ciclo?',
+          body: `<p>Se borrará <b>${esc(y.name)}</b> con sus ${y.courses.length} curso(s) y todas sus notas. No se puede deshacer.</p>`,
+          actions: [{ t: 'Cancelar' }, { t: 'Eliminar', danger: true, fn: () => {
+            state.cycles = state.cycles.filter(x => x !== y); save(); location.hash = '#/'; route();
+          } }]
+        });
+      } }] : [{ t: 'Cancelar' }]),
+      { t: y ? 'Guardar' : 'Crear', primary: true, fn: () => {
+        const name = $('#cyName').value.trim();
+        if (!name) { toast('Escribe un nombre'); return false; }
+        if (y) { y.name = name; save(); route(); }
+        else { const ny = { id: uid(), name, courses: [] }; state.cycles.push(ny); save(); location.hash = `#/ciclo/${ny.id}`; }
+      } }
+    ]
+  });
+}
+
+/* ============ Ciclo: mis cursos ============ */
+function renderCycle(y) {
+  setHeader(y.name, '#/', `<button class="icon-btn" id="menuBtn" aria-label="Opciones">⋯</button>
+    <button class="icon-btn" id="cycleCfg" aria-label="Editar ciclo">⚙︎</button>`);
+  let html = `<div class="list-title">Mis cursos</div>`;
+  if (!y.courses.length) {
+    html += `<div class="empty"><div class="big">📚</div><p><b>Aún no tienes cursos en este ciclo</b></p>
       <p class="muted">Crea uno y configura sus evaluaciones y pesos.</p></div>`;
   } else {
-    html = `<div class="list">${state.courses.map(c => {
+    html += `<div class="list">${y.courses.map(c => {
       const r = calc(c);
+      if (c.closed) {
+        return `<a class="course-row closed" href="#/curso/${c.id}">
+          <div class="cr-top"><span class="cr-name">🎓 ${esc(c.name)}</span><span class="chip ${r.status.k}">${r.status.t}</span></div>
+          <div class="cr-meta"><span>Curso cerrado</span><span>Nota final: <b>${fmt(r.filledPts)}</b></span></div></a>`;
+      }
       return `<a class="course-row" href="#/curso/${c.id}">
         <div class="cr-top"><span class="cr-name">${esc(c.name)}</span><span class="chip ${r.status.k}">${r.status.t}</span></div>
         <div class="bar ${r.status.k === 'ok' ? 'ok' : ''}"><div style="width:${r.progress * 100}%"></div></div>
@@ -412,12 +501,13 @@ function renderHome() {
     }).join('')}</div>`;
   }
   html += `<button class="fab" id="addCourse">+ Nuevo curso</button>`;
-  app.innerHTML = html;
-  $('#addCourse').onclick = addCourse;
-  $('#menuBtn').onclick = backupMenu;
+  $('#app').innerHTML = html;
+  $('#addCourse').onclick = () => addCourse(y);
+  $('#menuBtn').onclick = () => optionsMenu(y);
+  $('#cycleCfg').onclick = () => cycleModal(y);
 }
 
-function addCourse() {
+function addCourse(y) {
   modal({
     title: 'Nuevo curso',
     body: `<label>Nombre del curso<input id="ncName" placeholder="Ej. Cálculo I" autocomplete="off"></label>
@@ -428,85 +518,159 @@ function addCourse() {
       const max = parseNum($('#ncMax').value), pass = parseNum($('#ncPass').value);
       if (!name) { toast('Escribe un nombre'); return false; }
       if (!(max > 0) || !(pass > 0) || pass > max) { toast('Revisa la nota máxima y la aprobatoria'); return false; }
-      const c = { id: uid(), name, max, pass, items: [] };
-      state.courses.push(c); save();
+      const c = { id: uid(), name, max, pass, items: [], closed: false };
+      y.courses.push(c); save();
       location.hash = `#/curso/${c.id}/config`;
     } }]
   });
 }
 
-function backupMenu() {
+/* ============ Importar / Exportar ============ */
+let importTarget = null;   // ciclo donde se agregan los cursos importados (null = según el archivo)
+function optionsMenu(y) {
   modal({
     title: 'Opciones',
-    body: `<p class="muted small"><b>Importar curso:</b> carga el formato de un curso que alguien te compartió (nombres y pesos, sin notas).</p>
-      <p class="muted small"><b>Respaldo:</b> tus notas se guardan solo en este dispositivo. Descarga un respaldo para no perderlas o pasarlas a otro dispositivo.</p>`,
-    actions: [
-      { t: 'Importar curso o respaldo', fn: () => $('#importFile').click() },
-      { t: 'Descargar respaldo', fn: () => shareOrDownload(state, `mis-notas-respaldo-${new Date().toISOString().slice(0, 10)}.json`) },
-      { t: 'Cerrar', primary: true }
-    ]
+    body: `<div class="tiles">
+      <button class="tile" id="tImport"><span class="ti">📥</span><b>Importar</b><small>Agrega cursos desde un archivo. No se borra nada de lo que ya tienes.</small></button>
+      <button class="tile" id="tExport"><span class="ti">📤</span><b>Exportar</b><small>Elige cursos y descárgalos, con o sin notas.</small></button>
+    </div>`,
+    actions: []
+  });
+  $('#tImport').onclick = () => { closeModal(); importTarget = y; $('#importFile').click(); };
+  $('#tExport').onclick = () => exportPicker(y);
+}
+
+function exportPicker(y) {
+  const cycles = (y ? [y] : state.cycles).filter(x => x.courses.length);
+  if (!cycles.length) { toast('No tienes cursos para exportar'); return; }
+  modal({
+    title: 'Exportar cursos',
+    body: `<p class="muted small">Selecciona los cursos que quieres exportar.</p>
+      <label class="check all"><input type="checkbox" id="exAll"><span>Seleccionar todos</span></label>
+      <div class="check-list">${cycles.map(cy => `
+        ${cycles.length > 1 || !y ? `<div class="check-head">🗓️ ${esc(cy.name)}</div>` : ''}
+        ${cy.courses.map(c => `<label class="check"><input type="checkbox" class="exC" value="${c.id}"><span>${esc(c.name)}${c.closed ? ' 🎓' : ''}</span></label>`).join('')}
+      `).join('')}</div>`,
+    actions: [{ t: 'Cancelar' }, { t: 'Siguiente', primary: true, fn: () => {
+      const ids = [...document.querySelectorAll('.exC:checked')].map(i => i.value);
+      if (!ids.length) { toast('Selecciona al menos un curso'); return false; }
+      askGrades(ids.map(findCourse));
+    } }]
+  });
+  const all = $('#exAll');
+  all.onchange = () => document.querySelectorAll('.exC').forEach(i => i.checked = all.checked);
+  document.querySelectorAll('.exC').forEach(i => i.onchange = () => {
+    const xs = [...document.querySelectorAll('.exC')]; all.checked = xs.every(x => x.checked);
   });
 }
-/* En el celular abre el menú de compartir (WhatsApp, Drive…); si no, descarga el archivo */
-async function shareOrDownload(obj, filename) {
-  const json = JSON.stringify(obj, null, 2);
-  try {
-    const file = new File([json], filename, { type: 'application/json' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: filename });
-      return;
-    }
-  } catch (e) { if (e && e.name === 'AbortError') return; }
+
+function askGrades(courses) {
+  modal({
+    title: '¿Con notas o sin notas?',
+    body: `<p class="muted small">${courses.length} curso${courses.length === 1 ? '' : 's'} seleccionado${courses.length === 1 ? '' : 's'}.</p>
+      <div class="tiles">
+        <button class="tile" id="gWith"><span class="ti">📝</span><b>Con notas</b><small>Copia completa, ideal como respaldo o para otro dispositivo.</small></button>
+        <button class="tile" id="gWithout"><span class="ti">📋</span><b>Sin notas</b><small>Solo nombres y pesos, para compartir el formato.</small></button>
+      </div>`,
+    actions: []
+  });
+  $('#gWith').onclick = () => { closeModal(); exportCourses(courses, true); };
+  $('#gWithout').onclick = () => { closeModal(); exportCourses(courses, false); };
+}
+
+function serializeCourse(c, withGrades) {
+  const ser = n => {
+    const o = { name: n.name, weight: n.weight, children: (n.children || []).map(ser) };
+    if (withGrades && isLeaf(n) && hasGrade(n)) { o.grade = n.grade; o.locked = !!n.locked; }
+    return o;
+  };
+  return { name: c.name, max: c.max, pass: c.pass, closed: withGrades ? !!c.closed : false, items: c.items.map(ser) };
+}
+function exportCourses(courses, withGrades) {
+  const groups = [];
+  for (const c of courses) {
+    const y = cycleOf(c);
+    let g = groups.find(x => x.y === y);
+    if (!g) groups.push(g = { y, courses: [] });
+    g.courses.push(serializeCourse(c, withGrades));
+  }
+  const data = { type: 'prome', version: 2, withGrades, exportedAt: new Date().toISOString(),
+    cycles: groups.map(g => ({ name: g.y ? g.y.name : 'Importados', courses: g.courses })) };
+  const name = courses.length === 1
+    ? `${safeFile(courses[0].name)}${withGrades ? '' : '-formato'}.json`
+    : `prome-${withGrades ? 'con-notas' : 'formato'}-${new Date().toISOString().slice(0, 10)}.json`;
+  downloadJSON(data, name);
+  toast(`Exportado${courses.length === 1 ? '' : 's'} ${courses.length} curso${courses.length === 1 ? '' : 's'}`);
+}
+function downloadJSON(obj, filename) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
   a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }
-/* Formato de un curso: solo estructura, nombres y pesos (sin notas) */
-function courseTemplate(c) {
-  const strip = n => ({ name: n.name, weight: n.weight, children: (n.children || []).map(strip) });
-  return { type: 'prome-curso', version: 1, name: c.name, max: c.max, pass: c.pass, items: c.items.map(strip) };
-}
-function courseFromTemplate(t) {
+function buildCourse(t) {
   const build = n => {
     const node = newNode(String(n.name ?? 'Evaluación'), Number(n.weight) || 0);
     node.children = Array.isArray(n.children) ? n.children.map(build) : [];
+    if (!node.children.length && n.grade != null && isFinite(Number(n.grade))) { node.grade = Number(n.grade); node.locked = !!n.locked; }
     return node;
   };
   const max = Number(t.max) > 0 ? Number(t.max) : 20;
   const pass = Number(t.pass) > 0 ? Number(t.pass) : 10.5;
-  return { id: uid(), name: String(t.name || 'Curso importado'), max, pass, items: (t.items || []).map(build) };
+  return { id: uid(), name: String(t.name || 'Curso importado'), max, pass, closed: !!t.closed, items: (t.items || []).map(build) };
 }
 const safeFile = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'curso';
 
-$('#importFile').addEventListener('change', e => {
-  const f = e.target.files[0]; if (!f) return;
-  const rd = new FileReader();
-  rd.onload = () => {
+/* Lee cualquier formato (nuevo, curso suelto o respaldo antiguo) y devuelve [{cycle, course}] */
+function parseImport(s) {
+  const out = [];
+  if (!s || typeof s !== 'object') return out;
+  if (Array.isArray(s.cycles)) s.cycles.forEach(cy => (cy.courses || []).forEach(c => out.push({ cycle: cy.name, course: c })));
+  else if (Array.isArray(s.courses)) s.courses.forEach(c => out.push({ cycle: null, course: c }));
+  else if (Array.isArray(s.items)) out.push({ cycle: null, course: s });
+  return out;
+}
+function getOrCreateCycle(name) {
+  let y = state.cycles.find(x => x.name.trim().toLowerCase() === String(name).trim().toLowerCase());
+  if (!y) { y = { id: uid(), name: String(name), courses: [] }; state.cycles.push(y); }
+  return y;
+}
+$('#importFile').addEventListener('change', async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  if (!files.length) return;
+  let count = 0, bad = 0, lastCycle = null;
+  for (const f of files) {
     let s;
-    try { s = JSON.parse(rd.result); } catch (err) { toast('Archivo no válido'); return; }
-    if (s && s.type === 'prome-curso' && Array.isArray(s.items)) {
-      const c = courseFromTemplate(s);
-      state.courses.push(c); save();
-      location.hash = `#/curso/${c.id}`;
-      toast(`Curso "${c.name}" importado`);
-    } else if (s && Array.isArray(s.courses)) {
-      modal({
-        title: '¿Reemplazar datos?',
-        body: `<p>El respaldo tiene <b>${s.courses.length}</b> curso(s). Se reemplazará todo lo que tienes ahora.</p>`,
-        actions: [{ t: 'Cancelar' }, { t: 'Reemplazar', primary: true, fn: () => { state = s; save(); route(); toast('Respaldo importado'); } }]
-      });
-    } else toast('Archivo no válido');
-  };
-  rd.readAsText(f); e.target.value = '';
+    try { s = JSON.parse(await f.text()); } catch (err) { bad++; continue; }
+    const entries = parseImport(s);
+    if (!entries.length) { bad++; continue; }
+    for (const { cycle, course } of entries) {
+      const y = importTarget || getOrCreateCycle(cycle || 'Importados');
+      y.courses.push(buildCourse(course)); count++; lastCycle = y;
+    }
+  }
+  save();
+  if (count) {
+    toast(`Se importaron ${count} curso${count === 1 ? '' : 's'}${bad ? ` · ${bad} archivo(s) no válido(s)` : ''}`);
+    if (!importTarget && lastCycle && state.cycles.length) route(); else route();
+  } else toast('Archivo no válido');
 });
 
 /* ============ Curso: ingresar notas ============ */
 function renderCourse(c) {
-  setHeader(c.name, '#/', `<a class="icon-btn" href="#/curso/${c.id}/config" aria-label="Configurar">⚙︎</a>`);
-  const issues = weightIssues(c.items);
-  let html = `<section class="summary" id="summary"></section>`;
+  const y = cycleOf(c);
+  setHeader(c.name, y ? `#/ciclo/${y.id}` : '#/', c.closed
+    ? `<button class="icon-btn" id="closedCfg" aria-label="Opciones del curso">⚙︎</button>`
+    : `<a class="icon-btn" href="#/curso/${c.id}/config" aria-label="Configurar">⚙︎</a>`);
+  const issues = c.closed ? [] : weightIssues(c.items);
+  let html = '';
+  if (c.closed) {
+    const r = calc(c), ok = r.filledPts >= c.pass - 1e-9;
+    html += `<div class="closed-banner ${ok ? 'ok' : 'bad'}"><span class="big">🎓</span><div><b>Curso cerrado</b>
+      <div>Nota final <b>${fmt(r.filledPts)}</b> · ${ok ? 'Aprobado ✅' : 'Desaprobado ❌'}</div></div></div>`;
+  }
+  html += `<section class="summary" id="summary"></section>`;
   if (issues.length) {
     html += `<div class="alert warn">⚠️ Los pesos no suman 100% en: ${issues.map(i => `<b>${esc(i.label)}</b> (${fmt(i.sum)}%)`).join(', ')}.
       Los cálculos no serán correctos. <a href="#/curso/${c.id}/config">Corregir</a></div>`;
@@ -516,10 +680,26 @@ function renderCourse(c) {
       <a class="btn primary" href="#/curso/${c.id}/config">Configurar evaluaciones</a></div>`;
   } else {
     html += `<div class="tree">${c.items.map(n => gradeNodeHTML(n, 1)).join('')}</div>
-      <p class="muted small" style="margin-top:14px">🔒 Nota oficial asegurada · 🔓 Nota de prueba (simulación). Toca 🔓 para asegurar una nota que ya te dieron.</p>`;
+      ${c.closed ? '' : `<p class="muted small" style="margin-top:14px">🔒 Nota oficial asegurada · 🔓 Nota de prueba (simulación). Toca 🔓 para asegurar una nota que ya te dieron.</p>`}`;
   }
   $('#app').innerHTML = html;
   updateLive(c);
+
+  if (c.closed) {
+    $('#closedCfg').onclick = () => modal({
+      title: 'Curso cerrado',
+      body: `<p>Este curso está cerrado y sus notas no se pueden cambiar.</p><p class="muted small">Si necesitas corregir algo, puedes reabrirlo.</p>`,
+      actions: [{ t: 'Cancelar' }, { t: 'Reabrir curso', danger: true, fn: () => {
+        c.closed = false; save(); keepScroll(() => renderCourse(c)); toast('Curso reabierto');
+      } }]
+    });
+    $('#app').querySelectorAll('input.grade').forEach(inp => {
+      inp.readOnly = true; inp.classList.add('is-locked');
+      inp.addEventListener('focus', () => inp.blur());
+    });
+    $('#app').querySelectorAll('[data-lock]').forEach(b => b.onclick = () => toast('El curso está cerrado 🎓'));
+    return;
+  }
 
   $('#app').querySelectorAll('input.grade').forEach(inp => {
     inp.addEventListener('input', () => {
@@ -535,7 +715,7 @@ function renderCourse(c) {
   // Nota asegurada: tocar el recuadro no deja cambiarla
   $('#app').querySelectorAll('input.grade.is-locked').forEach(inp => {
     inp.addEventListener('focus', () => inp.blur());
-    inp.addEventListener('click', () => toast('Nota asegurada 🔒 · Mantén presionado el candado 2 s para cambiarla'));
+    inp.addEventListener('click', () => toast('Nota asegurada 🔒 · Mantén presionado el candado 1 s para cambiarla'));
   });
   $('#app').querySelectorAll('[data-lock]').forEach(b => {
     const { node } = findNode(c.items, b.dataset.lock);
@@ -548,13 +728,13 @@ function renderCourse(c) {
         keepScroll(() => renderCourse(c));
       };
     } else {
-      // Mantener presionado 2 s: desbloquear
-      holdButton(b, 2000, () => {
+      // Mantener presionado 1 s: desbloquear
+      holdButton(b, 1000, () => {
         node.locked = false; save();
         if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
         keepScroll(() => renderCourse(c));
         toast('Nota desbloqueada');
-      }, () => toast('Mantén presionado 2 s para desbloquear'));
+      }, () => toast('Mantén presionado 1 s para desbloquear'));
     }
   });
 }
@@ -600,7 +780,7 @@ function updateLive(c) {
   const sum = $('#summary'); if (!sum) return;
   const finalDone = r.ls.length && r.emptyW <= 1e-9;
   const msgs = [];
-  if (r.ls.length) {
+  if (r.ls.length && !c.closed) {
     if (r.status.k === 'ok') msgs.push(['ok', `🎉 Ya aseguraste el aprobado. Aunque saques ${fmt(0)} en lo que falta, apruebas.`]);
     else if (r.remW <= 1e-9) msgs.push(['bad', `Todas las notas están aseguradas. Nota final: <b>${fmt(r.lockedPts)}</b>.`]);
     else if (r.needLocked > c.max + 1e-9) msgs.push(['bad', `Necesitarías un promedio de <b>${fmt(r.needLocked)}</b> en el ${fmt(r.remW * 100)}% restante, pero el máximo es ${fmt(c.max)}. Ya no es posible aprobar.`]);
@@ -676,6 +856,8 @@ function renderConfig(c) {
     ${!c.items.length ? `<button class="btn block" id="tpl">Cargar ejemplo (Final, Parcial, Evaluaciones continuas…)</button>` : ''}
     ${c.items.length ? `<p class="muted small" style="margin-top:12px">↕️ Mantén presionado un bloque (o arrastra desde ⠿) para moverlo arriba o abajo.</p>
     <div class="cfg-tools"><button class="btn" id="exportTpl">📤 Exportar formato</button></div>` : ''}
+    ${isComplete(c) ? `<div class="close-box"><div><b>🎓 Todas las notas están llenas</b><div class="muted small">Puedes cerrar el curso: se aseguran todas las notas y queda con su nota final.</div></div>
+      <button class="btn close-btn" id="closeCourse">Cerrar curso</button></div>` : ''}
     <a class="btn primary block" href="#/curso/${c.id}">Listo</a>
     <div class="danger-zone"><button class="btn danger sm" id="delCourse">Eliminar curso</button></div>`;
   updateSums(c);
@@ -730,8 +912,21 @@ function renderConfig(c) {
       });
     } else doDel();
   });
+  const cc = $('#closeCourse');
+  if (cc) cc.onclick = () => {
+    const r = calc(c), ok = r.filledPts >= c.pass - 1e-9;
+    modal({
+      title: '¿Cerrar curso?',
+      body: `<p>Nota final: <b>${fmt(r.filledPts)}</b> · ${ok ? 'Aprobado ✅' : 'Desaprobado ❌'}</p>
+        <p class="muted small">Se asegurarán todas las notas y el curso quedará cerrado. Podrás reabrirlo desde la tuerca si lo necesitas.</p>`,
+      actions: [{ t: 'Cancelar' }, { t: 'Cerrar curso', primary: true, fn: () => {
+        leaves(c.items).forEach(({ node }) => { if (hasGrade(node)) node.locked = true; });
+        c.closed = true; save(); location.hash = `#/curso/${c.id}`; toast('Curso cerrado 🎓');
+      } }]
+    });
+  };
   const ex = $('#exportTpl');
-  if (ex) ex.onclick = () => shareOrDownload(courseTemplate(c), `formato-${safeFile(c.name)}.json`);
+  if (ex) ex.onclick = () => exportCourses([c], false);
   enableReorder(c);
   const tpl = $('#tpl');
   if (tpl) tpl.onclick = () => { c.items = exampleTemplate(); save(); keepScroll(() => renderConfig(c)); };
@@ -739,7 +934,7 @@ function renderConfig(c) {
     title: '¿Eliminar curso?',
     body: `<p>Se borrará <b>${esc(c.name)}</b> con todas sus notas. No se puede deshacer.</p>`,
     actions: [{ t: 'Cancelar' }, { t: 'Eliminar', danger: true, fn: () => {
-      state.courses = state.courses.filter(x => x !== c); save(); location.hash = '#/';
+      const y = cycleOf(c); if (y) y.courses = y.courses.filter(x => x !== c); save(); location.hash = y ? `#/ciclo/${y.id}` : '#/';
     } }]
   });
 }
