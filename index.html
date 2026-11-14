@@ -169,7 +169,9 @@ input.grade.is-locked{-webkit-text-fill-color:var(--ok);color:var(--ok);border-c
 .cfg-head input{-webkit-user-select:text;user-select:text}
 .grip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:42px;flex-shrink:0;color:var(--muted);
   font-size:1.1rem;cursor:grab;touch-action:none;margin-left:-4px}
-.cfg-node.dragging{outline:2px solid var(--primary);box-shadow:0 10px 30px rgba(79,70,229,.25)!important;opacity:.95;position:relative;z-index:5}
+.cfg-node.dragging{outline:2px solid var(--primary);box-shadow:0 14px 34px rgba(40,50,140,.28)!important;position:relative;z-index:20;will-change:transform}
+body.is-dragging .cfg-node{-webkit-user-select:none;user-select:none}
+body.is-dragging #scroller{scroll-behavior:auto}
 body.is-dragging,body.is-dragging *{cursor:grabbing!important}
 .cfg-tools{display:flex;gap:8px;margin-top:14px}
 .cfg-tools .btn{flex:1}
@@ -1380,7 +1382,8 @@ function renderConfig(c) {
   });
 }
 
-/* Mantener presionado un bloque y moverlo arriba/abajo (se mueve con todo lo que tiene dentro) */
+/* Mantener presionado un bloque y moverlo arriba/abajo (se mueve con todo lo que tiene dentro).
+   El bloque sigue al dedo, los demás se corren con animación y al soltar se acomoda en su lugar. */
 let reorderCourse = null, reorderReady = false;
 function enableReorder(course) {
   reorderCourse = course;
@@ -1390,44 +1393,86 @@ function enableReorder(course) {
   let drag = null, pressT = null, sx = 0, sy = 0, lastY = 0, raf = 0;
 
   const siblingsOf = el => [...el.parentElement.children].filter(e => e.classList.contains('cfg-node'));
-  function begin(nodeEl) {
+
+  function begin(nodeEl, y) {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    drag = { el: nodeEl, list: nodeEl.parentElement };
+    const sibs = siblingsOf(nodeEl);
+    const rects = sibs.map(e => e.getBoundingClientRect());
+    const from = sibs.indexOf(nodeEl);
+    const gap = sibs.length > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 8;
+    drag = { el: nodeEl, list: nodeEl.parentElement, sibs, rects, from, to: from, gap,
+             startY: y, startScroll: scroller.scrollTop, h: rects[from].height, settling: false };
+    sibs.forEach(e => { if (e !== nodeEl) e.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1)'; });
+    nodeEl.style.transition = 'box-shadow .2s';
     nodeEl.classList.add('dragging');
     document.body.classList.add('is-dragging');
     if (navigator.vibrate) navigator.vibrate(25);
-    autoScroll();
-  }
-  function move(y) {
     lastY = y;
-    if (!drag) return;
-    const others = siblingsOf(drag.el).filter(e => e !== drag.el);
-    let idx = 0;
-    for (const o of others) { const r = o.getBoundingClientRect(); if (y > r.top + r.height / 2) idx++; }
-    const ref = others[idx] || drag.list.querySelector(':scope > .cfg-foot');
-    if (ref !== drag.el.nextElementSibling) drag.list.insertBefore(drag.el, ref);
+    raf = requestAnimationFrame(tick);
   }
-  function autoScroll() {
-    if (!drag) return;
+
+  // Posición del bloque según el dedo (y el scroll automático)
+  function update() {
+    const d = drag; if (!d || d.settling) return;
+    let dy = (lastY - d.startY) + (scroller.scrollTop - d.startScroll);
+    // No dejarlo salir del grupo
+    const minDy = d.rects[0].top - d.rects[d.from].top;
+    const maxDy = d.rects[d.rects.length - 1].bottom - d.rects[d.from].bottom;
+    dy = Math.max(minDy - 12, Math.min(maxDy + 12, dy));
+    d.dy = dy;
+    d.el.style.transform = `translateY(${dy}px) scale(1.02)`;
+    // ¿En qué posición cae su centro?
+    const center = d.rects[d.from].top + d.h / 2 + dy;
+    let to = 0;
+    d.rects.forEach((r, i) => { if (i !== d.from && center > r.top + r.height / 2) to++; });
+    if (to !== d.to) {
+      d.to = to;
+      const shift = d.h + d.gap;
+      d.sibs.forEach((e, i) => {
+        if (i === d.from) return;
+        let off = 0;
+        if (d.from < to && i > d.from && i <= to) off = -shift;
+        if (to < d.from && i >= to && i < d.from) off = shift;
+        e.style.transform = off ? `translateY(${off}px)` : '';
+      });
+      if (navigator.vibrate) navigator.vibrate(8);
+    }
+  }
+  function tick() {
+    if (!drag || drag.settling) return;
     const h = window.innerHeight;
-    if (lastY < 90) scroller.scrollTop -= 12; else if (lastY > h - 90) scroller.scrollTop += 12;
-    move(lastY);
-    raf = requestAnimationFrame(autoScroll);
+    if (lastY < 110) scroller.scrollTop -= Math.ceil((110 - lastY) / 8);
+    else if (lastY > h - 110) scroller.scrollTop += Math.ceil((lastY - (h - 110)) / 8);
+    update();
+    raf = requestAnimationFrame(tick);
   }
+  function move(y) { lastY = y; if (drag) update(); }
+
   function end() {
     clearTimeout(pressT); pressT = null;
-    if (!drag) return;
+    const d = drag;
+    if (!d || d.settling) return;
+    d.settling = true;
     cancelAnimationFrame(raf);
-    const pid = drag.list.dataset.pid;
-    const order = siblingsOf(drag.el).map(e => e.dataset.id);
-    const c = reorderCourse;
-    const list = getList(c, pid);
-    list.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-    drag.el.classList.remove('dragging');
-    document.body.classList.remove('is-dragging');
-    drag = null;
-    save(); keepScroll(() => renderConfig(c));
+    // Deslizar el bloque hasta su lugar final
+    let target = 0;
+    if (d.to > d.from) for (let i = d.from + 1; i <= d.to; i++) target += d.rects[i].height + d.gap;
+    if (d.to < d.from) for (let i = d.to; i < d.from; i++) target -= d.rects[i].height + d.gap;
+    d.el.style.transition = 'transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s';
+    d.el.style.transform = `translateY(${target}px)`;
+    d.el.classList.remove('dragging');
+    const finish = () => {
+      if (drag !== d) return;
+      drag = null;
+      document.body.classList.remove('is-dragging');
+      const c = reorderCourse;
+      const list = getList(c, d.list.dataset.pid);
+      if (d.to !== d.from) { const [m] = list.splice(d.from, 1); list.splice(d.to, 0, m); save(); }
+      keepScroll(() => renderConfig(c));
+    };
+    setTimeout(finish, 210);
   }
+
   function headOf(target) {
     if (!/\/config$|^#\/nuevo/.test(location.hash)) return null;
     const head = target.closest('.cfg-head');
@@ -1437,16 +1482,17 @@ function enableReorder(course) {
     return { nodeEl: head.parentElement, isGrip };
   }
 
-  // Táctil: mantener presionado ~0.4 s (o el ⠿) y deslizar
+  // Táctil: mantener presionado ~0.35 s (o el ⠿) y deslizar
   app.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) return;
+    if (e.touches.length !== 1 || drag) return;
     const h = headOf(e.target); if (!h) return;
     const t = e.touches[0]; sx = t.clientX; sy = t.clientY; lastY = sy;
-    pressT = setTimeout(() => begin(h.nodeEl), h.isGrip ? 150 : 400);
+    pressT = setTimeout(() => { pressT = null; begin(h.nodeEl, lastY); }, h.isGrip ? 120 : 350);
   }, { passive: true });
   document.addEventListener('touchmove', e => {
     const t = e.touches[0]; if (!t) return;
     if (drag) { e.preventDefault(); move(t.clientY); return; }
+    lastY = t.clientY;
     if (pressT && (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10)) { clearTimeout(pressT); pressT = null; }
   }, { passive: false });
   document.addEventListener('touchend', end);
@@ -1455,14 +1501,16 @@ function enableReorder(course) {
 
   // Mouse (computadora): arrastrar desde ⠿ o mantener presionado el bloque
   app.addEventListener('mousedown', e => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || drag) return;
     const h = headOf(e.target); if (!h) return;
     lastY = e.clientY; sx = e.clientX; sy = e.clientY;
-    if (h.isGrip) { e.preventDefault(); begin(h.nodeEl); } else pressT = setTimeout(() => begin(h.nodeEl), 400);
+    if (h.isGrip) { e.preventDefault(); begin(h.nodeEl, e.clientY); }
+    else pressT = setTimeout(() => { pressT = null; begin(h.nodeEl, lastY); }, 350);
   });
   document.addEventListener('mousemove', e => {
-    if (drag) { e.preventDefault(); move(e.clientY); }
-    else if (pressT && (Math.abs(e.clientX - sx) > 6 || Math.abs(e.clientY - sy) > 6)) { clearTimeout(pressT); pressT = null; }
+    if (drag) { e.preventDefault(); move(e.clientY); return; }
+    lastY = e.clientY;
+    if (pressT && (Math.abs(e.clientX - sx) > 6 || Math.abs(e.clientY - sy) > 6)) { clearTimeout(pressT); pressT = null; }
   });
   document.addEventListener('mouseup', end);
 }
