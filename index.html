@@ -840,7 +840,7 @@ function cycleModal(y) {
 function renderCycle(y) {
   setHeader(y.name, '#/', `<button class="icon-btn" id="menuBtn" aria-label="Opciones">⋯</button>
     <button class="icon-btn" id="cycleCfg" aria-label="Editar ciclo">⚙︎</button>`);
-  let html = `<button class="cycle-title" id="cycleTitle">✏️ Toca para cambiar el nombre del ciclo</button><div class="list-title">📚 Mis cursos</div>`;
+  let html = `<div class="list-title">📚 Mis cursos</div>`;
   if (!y.courses.length) {
     html += `<div class="empty"><div class="big">📚</div><p><b>Aún no tienes cursos en este ciclo</b></p>
       <p class="muted">Crea uno y configura sus evaluaciones y pesos.</p></div>`;
@@ -863,7 +863,6 @@ function renderCycle(y) {
   setFab('＋ Nuevo curso', () => addCourse(y));
   $('#menuBtn').onclick = () => optionsMenu(y);
   $('#cycleCfg').onclick = () => cycleModal(y);
-  $('#cycleTitle').onclick = () => cycleModal(y);
 }
 
 function addCourse(y) {
