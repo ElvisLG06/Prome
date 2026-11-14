@@ -292,6 +292,10 @@ input.grade:focus{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,v
 .lock-btn{border-radius:12px;background:#fff}
 .lock-btn.on{background:linear-gradient(135deg,#12b76a,#34d399);border-color:transparent}
 .closed-banner{border-radius:20px}
+.closed-banner.pending{border-style:dashed;background:#fff}
+.closed-banner.pending.ok{background:linear-gradient(90deg,var(--ok-soft),#fff)}
+.closed-banner.pending.bad{background:linear-gradient(90deg,var(--bad-soft),#fff)}
+.pend-note{font-size:.78rem;color:var(--muted);margin-top:2px}
 
 /* configuración */
 .card{border:none}
@@ -811,12 +815,7 @@ function renderCourse(c) {
     : `<a class="icon-btn" href="#/curso/${c.id}/config" aria-label="Configurar">⚙︎</a>`);
   const issues = c.closed ? [] : weightIssues(c.items);
   let html = '';
-  if (c.closed) {
-    const r = calc(c), ok = r.filledPts >= c.pass - 1e-9;
-    html += `<div class="closed-banner ${ok ? 'ok' : 'bad'}"><span class="big">🎓</span><div><b>Curso cerrado</b>
-      <div>Nota final <b>${fmt(r.filledPts)}</b> · ${ok ? 'Aprobado ✅' : 'Desaprobado ❌'}</div></div></div>`;
-  }
-  html += `<section class="summary" id="summary"></section>`;
+  html += `<div id="banner"></div><section class="summary" id="summary"></section>`;
   if (issues.length) {
     html += `<div class="alert warn">⚠️ Los pesos no suman 100% en: ${issues.map(i => `<b>${esc(i.label)}</b> (${fmt(i.sum)}%)`).join(', ')}.
       Los cálculos no serán correctos. <a href="#/curso/${c.id}/config">Corregir</a></div>`;
@@ -928,8 +927,8 @@ function updateLive(c) {
   const finalDone = r.ls.length && r.emptyW <= 1e-9;
   const msgs = [];
   if (r.ls.length && !c.closed) {
-    if (r.status.k === 'ok') msgs.push(['ok', `🎉 Ya aseguraste el aprobado. Aunque saques ${fmt(0)} en lo que falta, apruebas.`]);
-    else if (r.remW <= 1e-9) msgs.push(['bad', `Todas las notas están aseguradas. Nota final: <b>${fmt(r.lockedPts)}</b>.`]);
+    if (r.remW <= 1e-9) { /* todo asegurado: lo muestra el recuadro de arriba */ }
+    else if (r.status.k === 'ok') msgs.push(['ok', `🎉 Ya aseguraste el aprobado. Aunque saques ${fmt(0)} en lo que falta, apruebas.`]);
     else if (r.needLocked > c.max + 1e-9) msgs.push(['bad', `Necesitarías un promedio de <b>${fmt(r.needLocked)}</b> en el ${fmt(r.remW * 100)}% restante, pero el máximo es ${fmt(c.max)}. Ya no es posible aprobar.`]);
     else msgs.push([r.status.k === 'warn' ? 'warn' : '', `Necesitas un promedio de <b>${fmt(r.needLocked)}</b> en el ${fmt(r.remW * 100)}% del curso que aún no está asegurado.`]);
     const hasSim = r.filledW - r.lockedW > 1e-9;
@@ -938,10 +937,24 @@ function updateLive(c) {
       else if (r.needEmpty > c.max) msgs.push(['bad', `Con tus notas de prueba no alcanzas: en lo vacío necesitarías <b>${fmt(r.needEmpty)}</b>.`]);
       else msgs.push(['', `Con tus notas de prueba, en lo que dejaste vacío (${fmt(r.emptyW * 100)}%) necesitas un promedio de <b>${fmt(r.needEmpty)}</b>.`]);
     }
-    if (finalDone && hasSim) {
-      const ok = r.filledPts >= c.pass - 1e-9;
-      msgs.push([ok ? 'ok' : 'bad', `Con esta simulación tu nota final sería <b>${fmt(r.filledPts)}</b>: ${ok ? 'apruebas ✅' : 'no apruebas ❌'}.`]);
+  }
+  // Recuadro de resultado arriba del porcentaje
+  const banner = $('#banner');
+  if (banner) {
+    const ok = r.filledPts >= c.pass - 1e-9;
+    const allLocked = r.ls.length && r.remW <= 1e-9;
+    let b = '';
+    if (c.closed || allLocked) {
+      b = `<div class="closed-banner ${ok ? 'ok' : 'bad'}"><span class="big">🎓</span><div>
+        <b>${c.closed ? 'Curso cerrado' : (ok ? 'Curso aprobado' : 'Curso desaprobado')}</b>
+        <div>Nota final <b>${fmt(r.filledPts)}</b> · ${ok ? 'Aprobado ✅' : 'Desaprobado ❌'}</div></div></div>`;
+    } else if (finalDone) {
+      b = `<div class="closed-banner pending ${ok ? 'ok' : 'bad'}"><span class="big">${ok ? '🎓' : '📉'}</span><div>
+        <b>${ok ? 'Curso aprobado' : 'Curso desaprobado'}</b>
+        <div>Nota final <b>${fmt(r.filledPts)}</b> · Pendiente ⏳</div>
+        <div class="pend-note">Aún no bloqueas todas tus notas 🔓</div></div></div>`;
     }
+    banner.innerHTML = b;
   }
   sum.innerHTML = `<div class="hero">
     <div class="sum-top"><div><div class="label">🎯 Vas de aprobado</div><div class="bigpct">${fmt(r.progress * 100, 0)}%</div></div>
