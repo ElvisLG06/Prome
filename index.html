@@ -292,6 +292,25 @@ input.grade:focus{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,v
 .lock-btn{border-radius:12px;background:#fff}
 .lock-btn.on{background:linear-gradient(135deg,#12b76a,#34d399);border-color:transparent}
 .closed-banner{border-radius:20px}
+.cand-tag{display:inline-block;background:rgba(255,255,255,.22);border-radius:999px;padding:1px 8px;font-size:.72rem;margin-left:4px}
+.switch{flex-direction:row;align-items:center;gap:12px;margin:14px 0 0;cursor:pointer;color:var(--text)}
+.switch input{position:absolute;opacity:0;pointer-events:none}
+.switch .sw{flex-shrink:0;width:46px;height:28px;border-radius:999px;background:#d5d8e6;position:relative;transition:background .2s}
+.switch .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s}
+.switch input:checked+.sw{background:var(--primary)}
+.switch input:checked+.sw::after{transform:translateX(18px)}
+.sw-txt{display:flex;flex-direction:column;gap:2px;font-weight:500}
+.sw-txt b{font-size:.92rem}
+.sw-txt small{font-size:.75rem;color:var(--muted);font-weight:500;line-height:1.3}
+.from-pdf{display:flex;gap:10px;align-items:flex-start;background:#eef6ff;border:1.5px solid #bcd7fb;border-radius:14px;padding:12px;margin-bottom:14px;font-size:.88rem}
+.from-pdf .big{font-size:1.4rem}
+.pdf-btn{display:flex;width:100%;gap:10px;align-items:center;padding:12px;border-radius:14px;border:1.5px dashed #9fb4ee;background:#f3f6ff;color:var(--text);font:inherit;cursor:pointer;text-align:left;margin-bottom:12px}
+.pdf-btn .big{font-size:1.5rem}
+.pdf-btn small{display:block;color:var(--muted);font-size:.75rem}
+.or{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.75rem;margin:2px 0 10px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.spinner{width:34px;height:34px;margin:14px auto 4px;border-radius:50%;border:4px solid var(--primary-soft);border-top-color:var(--primary);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .closed-banner.pending{border-style:dashed;background:#fff}
 .closed-banner.pending.ok{background:linear-gradient(90deg,var(--ok-soft),#fff)}
 .closed-banner.pending.bad{background:linear-gradient(90deg,var(--bad-soft),#fff)}
@@ -340,6 +359,7 @@ input.grade:focus{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,v
   </div>
 </div>
 <div id="toast" class="toast" hidden></div>
+<input type="file" id="pdfFile" accept="application/pdf,.pdf" hidden>
 <input type="file" id="importFile" accept="application/json,.json" multiple hidden>
 
 <script>
@@ -451,29 +471,56 @@ function headInfo(n) {
   };
 }
 
+/* Curso candado: hay que aprobar cada bloque principal (no se compensan entre sí) */
+const isCandado = c => !!c.candado && c.items.length > 1;
+const candadoCap = c => Math.ceil(c.pass) - 1;   // con 10.5 para aprobar → la final queda en máx. 10
+
 function calc(c) {
   const heads = c.items.map(headInfo);
   const ls = heads.flatMap(h => h.ls);
+  const cand = isCandado(c);
   let lockedPts = 0, lockedW = 0, filledPts = 0, filledW = 0, totalW = 0;
   for (const h of heads) {
     totalW += h.tw; filledW += h.fw; lockedW += h.lw;
     // Sección completa: cuenta su nota redondeada; si no, lo que lleva
     filledPts += h.complete ? h.rounded * h.tw : h.fp;
     lockedPts += h.lockedAll ? roundHalf(h.lp / h.tw) * h.tw : h.lp;
+    // Por bloque (para candado): cuánto necesita en lo que le falta
+    const remH = h.tw - h.lw, emptyH = h.tw - h.fw;
+    h.need = remH > 1e-9 ? (c.pass * h.tw - h.lp) / remH : null;
+    h.needEmpty = emptyH > 1e-9 ? (c.pass * h.tw - h.fp) / emptyH : null;
+    h.secured = h.tw > 0 && h.lp >= c.pass * h.tw - 1e-9;
+    h.failed = (h.lockedAll && roundHalf(h.lp / h.tw) < c.pass) || (h.need != null && h.need > c.max + 1e-9);
+    h.passedNow = h.complete && h.rounded >= c.pass - 1e-9;   // con lo llenado (incluye pruebas)
   }
+  // Candado: si un bloque completo sale desaprobado, la final queda en máximo 10
+  const failedHeads = cand ? heads.filter(h => h.complete && h.rounded < c.pass - 1e-9) : [];
+  const complete = ls.length > 0 && totalW - filledW <= 1e-9;
+  if (cand && complete && failedHeads.length) filledPts = Math.min(candadoCap(c), filledPts);
+  const lockedFailed = cand ? heads.filter(h => h.lockedAll && roundHalf(h.lp / h.tw) < c.pass - 1e-9) : [];
+  if (cand && lockedW >= totalW - 1e-9 && lockedFailed.length) lockedPts = Math.min(candadoCap(c), lockedPts);
+  const passed = filledPts >= c.pass - 1e-9 && !failedHeads.length;
+
   const remW = totalW - lockedW, emptyW = totalW - filledW;
   const needLocked = remW > 1e-9 ? (c.pass - lockedPts) / remW : null;   // promedio necesario en lo NO asegurado
   const needEmpty = emptyW > 1e-9 ? (c.pass - filledPts) / emptyW : null; // promedio necesario en lo vacío (con simulaciones)
-  const progress = c.pass > 0 ? Math.min(1, Math.max(0, lockedPts / c.pass)) : 0;
+  let progress = c.pass > 0 ? Math.min(1, Math.max(0, lockedPts / c.pass)) : 0;
+  if (cand && totalW > 0) progress = heads.reduce((a, h) => a + h.tw * Math.min(1, Math.max(0, h.lp / (c.pass * h.tw || 1))), 0) / totalW;
   let status;
-  if (c.closed) status = filledPts >= c.pass - 1e-9 ? { k: 'ok', t: 'Cerrado · Aprobado' } : { k: 'bad', t: 'Cerrado · Desaprobado' };
+  if (c.closed) status = passed ? { k: 'ok', t: 'Cerrado · Aprobado' } : { k: 'bad', t: 'Cerrado · Desaprobado' };
   else if (!ls.length) status = { k: 'none', t: 'Sin configurar' };
+  else if (cand) {
+    if (heads.every(h => h.secured)) status = { k: 'ok', t: 'Aprobado asegurado' };
+    else if (remW <= 1e-9 || heads.some(h => h.failed)) status = { k: 'bad', t: remW <= 1e-9 ? 'Desaprobado' : 'Ya no alcanza' };
+    else if (heads.some(h => h.need != null && h.need > c.max * 0.7)) status = { k: 'warn', t: 'En riesgo' };
+    else status = { k: 'mid', t: 'En curso' };
+  }
   else if (lockedPts >= c.pass - 1e-9) status = { k: 'ok', t: 'Aprobado asegurado' };
   else if (remW <= 1e-9) status = { k: 'bad', t: 'Desaprobado' };
   else if (needLocked > c.max + 1e-9) status = { k: 'bad', t: 'Ya no alcanza' };
   else if (needLocked > c.max * 0.7) status = { k: 'warn', t: 'En riesgo' };
   else status = { k: 'mid', t: 'En curso' };
-  return { heads, ls, lockedPts, lockedW, filledPts, filledW, totalW, remW, emptyW, needLocked, needEmpty, progress, status };
+  return { heads, ls, cand, failedHeads, passed, lockedPts, lockedW, filledPts, filledW, totalW, remW, emptyW, needLocked, needEmpty, progress, status };
 }
 
 const isComplete = c => { const r = calc(c); return r.ls.length > 0 && r.emptyW <= 1e-9; };
@@ -531,6 +578,173 @@ function closeModal() { $('#modal').hidden = true; modalGen++; }
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 $('#mBody').addEventListener('keydown', e => {
   if (e.key === 'Enter') { const p = $('#mActions [data-primary]'); if (p) p.click(); }
+});
+
+/* ============ Leer sílabo (PDF) → esquema de evaluaciones ============ */
+const SYL_CODES = { EC: 'Evaluación Continua', C: 'Evaluación Continua', EP: 'Examen Parcial', EF: 'Examen Final',
+  PC: 'Práctica Calificada', PCPC: 'Práctica Calificada', P: 'Proyecto', L: 'Laboratorio', LB: 'Laboratorio', T: 'Tarea', E: 'Examen' };
+const sylNum = s => Number(String(s).replace(',', '.'));
+const sylClean = s => String(s).replace(/​/g, '').replace(/\s+/g, ' ').trim();
+const sylCap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const sylTitle = s => s.toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(Y|O|De|Del|La|El|En)\b/g, w => w.toLowerCase());
+
+/* Filas de texto (por página y altura) a partir de pdf.js */
+async function pdfRows(pdf) {
+  const rows = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    const pr = [];
+    for (const it of tc.items) {
+      const str = sylClean(it.str); if (!str) continue;
+      const x = it.transform[4], y = it.transform[5];
+      let r = pr.find(r => Math.abs(r.y - y) < 2.5);
+      if (!r) pr.push(r = { page: p, y, items: [] });
+      r.items.push({ x, s: str });
+    }
+    pr.sort((a, b) => b.y - a.y);
+    pr.forEach(r => { r.items.sort((a, b) => a.x - b.x); r.text = sylClean(r.items.map(i => i.s).join(' ')); });
+    rows.push(...pr);
+  }
+  return rows;
+}
+
+/* Una evaluación: "2 Promedios de evaluación continua (C) 30%" → { name, pct, count, code } */
+function sylItem(t) {
+  const pm = t.match(/(\d+(?:[.,]\d+)?)\s*%/);
+  const pct = sylNum(pm[1]);
+  let head = t.slice(0, pm.index).replace(/\(\s*$/, '');
+  let count = 1, code = '';
+  const cm = head.match(/^(\d+)\s+(?=[A-Za-zÁÉÍÓÚáéíóú])/);
+  if (cm) { count = Number(cm[1]); head = head.slice(cm[0].length); }
+  const pc = head.match(/\(\s*([A-Z]{1,5}\s*\d*)\s*\)\s*\**/);
+  if (pc) { code = pc[1].replace(/\s+/g, ''); head = head.replace(pc[0], ' '); }
+  const dc = head.match(/^([A-Z]{1,5}\s*\d*)\s*[-–—]\s*/);
+  if (dc) { if (!code) code = dc[1].replace(/\s+/g, ''); head = head.slice(dc[0].length); }
+  let name = sylClean(head.replace(/\*/g, '').replace(/[\s,:;.-]+$/, ''));
+  const letters = (code.match(/^[A-Z]+/) || [''])[0], digits = (code.match(/\d+$/) || [''])[0];
+  const byCode = SYL_CODES[letters];
+  const pr = name.match(/^promedios?\s+de:?\s*/i);
+  if (pr) {
+    const rest = name.slice(pr[0].length);
+    name = (rest.length > 30 || /,/.test(rest)) && byCode ? byCode : sylCap(rest);
+  }
+  if ((!name || name.length > 40) && byCode) name = byCode;
+  if (name.length > 40) name = sylCap(name.split(',')[0]).slice(0, 40);
+  if (!name) name = code || 'Evaluación';
+  if (digits && !/\d\s*$/.test(name)) name += ' ' + Number(digits);
+  return { name, pct, count, childBase: byCode || name.replace(/\s*\d+$/, '') };
+}
+
+/* Filas → { name, candado, items } (items en el formato de la app, pesos relativos por nivel) */
+function syllabusFromRows(rows) {
+  const ai = rows.findIndex(r => /^\d*\.?\s*ASIGNATURA\b/i.test(r.text));
+  let name = ai >= 0 && rows[ai + 1] ? rows[ai + 1].text : '';
+  name = sylClean(name.replace(/^[A-Z]{2,4}\d{3,5}\s*[-–—]\s*/, ''));
+
+  const si = rows.findIndex(r => /SISTEMA DE EVALUACI/i.test(r.text));
+  if (si < 0) throw new Error('No encontré la sección "Sistema de evaluación" en el PDF.');
+  let ei = rows.findIndex((r, i) => i > si && /REFERENCIAS\s+BIBLIOGR/i.test(r.text));
+  if (ei < 0) ei = rows.length;
+  const sec = rows.slice(si + 1, ei);
+  const secText = sec.map(r => r.text).join(' ');
+  const candado = /desaprueba\s+(la\s+)?teor[ií]a\s+y\s*\/?\s*o\s+(el\s+)?laboratorio|menor\s+valor\s+entre\s+10|aprobar\s+(tanto\s+)?(la\s+)?teor[ií]a\s+y\s+(el\s+)?laboratorio|curso\s+candado/i.test(secText);
+
+  // Columna izquierda de la tabla (se ignoran las columnas de semanas y el texto fuera de la tabla)
+  const hi = sec.findIndex(r => r.items.some(i => /ciclo\s+regular/i.test(i.s)) || /\d\s*%/.test(r.text));
+  if (hi < 0) throw new Error('No encontré la tabla de pesos en el PDF.');
+  const hdr = sec[hi];
+  const ciclo = hdr.items.find(i => /ciclo\s+regular/i.test(i.s));
+  const colX = ciclo ? ciclo.x - 4 : Infinity;
+  const tableX = hdr.items[0].x - 4;
+  const lines = [];
+  for (const r of sec.slice(hi)) {
+    if (r.items[0].x < tableX) continue;
+    const t = sylClean(r.items.filter(i => i.x < colX).map(i => i.s).join(' '));
+    if (t) lines.push(t);
+  }
+
+  // Estructura: bloques (Teoría 66%…) → categorías sin % (EVALUACIÓN CONTINUA…) → evaluaciones
+  const groups = [];
+  let g = null, cat = null, buf = '';
+  const ensureGroup = () => { if (!g) groups.push(g = { name: null, pct: 100, entries: [] }); return g; };
+  for (const t of lines) {
+    if (/^100\s*%$/.test(t)) { buf = ''; continue; }
+    const gm = t.match(/^((?:teor[ií]a|pr[aá]ctica|laboratorio|taller)[^()%]*?)\s+(\d+(?:[.,]\d+)?)\s*%$/i);
+    if (gm && !buf) { groups.push(g = { name: sylCap(gm[1]), pct: sylNum(gm[2]), entries: [] }); cat = null; continue; }
+    if (!/%/.test(t) && !buf && /[A-ZÁÉÍÓÚ]{3}/.test(t) && t === t.toUpperCase()) {
+      cat = { cat: sylTitle(sylClean(t.replace(/\([^)]*\)/g, ''))), items: [] };
+      ensureGroup().entries.push(cat); continue;
+    }
+    if (!buf && /^[a-záéíóúñ(]/.test(t)) continue;      // resto de la descripción anterior
+    buf = buf ? buf + ' ' + t : t;
+    if (/\d\s*%/.test(buf)) {
+      const it = sylItem(buf); buf = '';
+      if (cat) cat.items.push(it); else ensureGroup().entries.push(it);
+    }
+  }
+
+  const leafOrSplit = (it, weight) => {
+    const n = { name: it.name, weight, children: [] };
+    if (it.count > 1) for (let k = 1; k <= it.count; k++) n.children.push({ name: `${it.childBase} ${k}`, weight: 100 / it.count, children: [] });
+    return n;
+  };
+  const entriesToNodes = (entries, total) => entries.map(e => {
+    if (e.cat) {
+      const sum = e.items.reduce((a, i) => a + i.pct, 0);
+      return { name: e.cat, weight: sum / total * 100, children: e.items.map(i => leafOrSplit(i, sum ? i.pct / sum * 100 : 0)) };
+    }
+    return leafOrSplit(e, e.pct / total * 100);
+  }).filter(n => n.weight > 0 || n.children.length);
+
+  const real = groups.filter(x => x.entries.length);
+  let items;
+  if (real.length > 1) items = real.map(x => ({ name: x.name || 'Bloque', weight: x.pct, children: entriesToNodes(x.entries, x.pct) }));
+  else if (real.length === 1) items = entriesToNodes(real[0].entries, 100);
+  else items = [];
+  if (!items.length) throw new Error('No pude leer las evaluaciones de la tabla.');
+  return { name, candado: candado && items.length > 1, items };
+}
+
+
+/* pdf.js se carga solo cuando se usa (vendor/, ~1.4 MB) */
+let pdfjsReady = null;
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!pdfjsReady) pdfjsReady = new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'vendor/pdf.min.js';
+    sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js'; res(window.pdfjsLib); };
+    sc.onerror = () => { pdfjsReady = null; rej(new Error('No se pudo cargar el lector de PDF. Revisa tu conexión e inténtalo de nuevo.')); };
+    document.head.appendChild(sc);
+  });
+  return pdfjsReady;
+}
+async function readSyllabus(file) {
+  const lib = await loadPdfJs();
+  const pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  return syllabusFromRows(await pdfRows(pdf));
+}
+const sylToNodes = list => list.map(n => { const node = newNode(n.name, n.weight); node.children = sylToNodes(n.children || []); return node; });
+
+let pendingPdf = null;   // { cycleId, max, pass, name }
+$('#pdfFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f || !pendingPdf) return;
+  const ctx = pendingPdf; pendingPdf = null;
+  modal({ title: '📄 Leyendo sílabo…', body: `<p class="muted small">Buscando la tabla de evaluación en <b>${esc(f.name)}</b>.</p><div class="spinner"></div>`, actions: [] });
+  try {
+    const r = await readSyllabus(f);
+    closeModal();
+    draft = { cycleId: ctx.cycleId, fromPdf: true, course: { id: uid(), name: r.name || ctx.name || 'Curso nuevo', max: ctx.max, pass: ctx.pass, candado: r.candado, items: sylToNodes(r.items), closed: false } };
+    location.hash = '#/nuevo';
+  } catch (err) {
+    modal({
+      title: 'No pude leer el sílabo',
+      body: `<p>${esc(err.message || 'El PDF no tiene el formato esperado.')}</p><p class="muted small">Puede que el PDF sea una imagen escaneada o tenga otro formato. Puedes crear el curso a mano.</p>`,
+      actions: [{ t: 'Cerrar' }, { t: 'Crear a mano', primary: true, fn: () => { const y = findCycle(ctx.cycleId); if (y) setTimeout(() => addCourse(y), 50); } }]
+    });
+  }
 });
 
 /* ============ Router ============ */
@@ -646,19 +860,29 @@ function renderCycle(y) {
 function addCourse(y) {
   modal({
     title: 'Nuevo curso',
-    body: `<label>Nombre del curso<input id="ncName" placeholder="Ej. Cálculo I" autocomplete="off"></label>
+    body: `<button class="pdf-btn" id="fromPdf"><span class="big">📄</span><span><b>Crear desde el sílabo (PDF)</b><small>Leo la tabla de evaluación y armo el esquema por ti. Luego lo revisas.</small></span></button>
+      <div class="or">o créalo a mano</div>
+      <label>Nombre del curso<input id="ncName" placeholder="Ej. Cálculo I" autocomplete="off"></label>
       <div class="row2"><label>Nota máxima<input id="ncMax" inputmode="decimal" value="20"></label>
-      <label>Nota para aprobar<input id="ncPass" inputmode="decimal" value="10.5"></label></div>`,
+      <label>Nota para aprobar<input id="ncPass" inputmode="decimal" value="10.5"></label></div>
+      <label class="switch"><input type="checkbox" id="ncCand"><span class="sw"></span>
+        <span class="sw-txt"><b>🔐 Curso candado</b><small>Hay que aprobar cada bloque principal (ej. Teoría y Laboratorio) por separado.</small></span></label>`,
     actions: [{ t: 'Cancelar' }, { t: 'Siguiente ›', primary: true, fn: () => {
       const name = $('#ncName').value.trim();
       const max = parseNum($('#ncMax').value), pass = parseNum($('#ncPass').value);
       if (!name) { toast('Escribe un nombre'); return false; }
       if (!(max > 0) || !(pass > 0) || pass > max) { toast('Revisa la nota máxima y la aprobatoria'); return false; }
       // Aún no se guarda: solo se guarda al tocar "Guardar"
-      draft = { cycleId: y.id, course: { id: uid(), name, max, pass, items: [], closed: false } };
+      draft = { cycleId: y.id, course: { id: uid(), name, max, pass, candado: $('#ncCand').checked, items: [], closed: false } };
       location.hash = '#/nuevo';
     } }]
   });
+  $('#fromPdf').onclick = () => {
+    const max = parseNum($('#ncMax').value), pass = parseNum($('#ncPass').value);
+    if (!(max > 0) || !(pass > 0) || pass > max) { toast('Revisa la nota máxima y la aprobatoria'); return; }
+    pendingPdf = { cycleId: y.id, max, pass, name: $('#ncName').value.trim() };
+    $('#pdfFile').click();
+  };
 }
 
 /* ============ Importar / Exportar ============ */
@@ -926,7 +1150,17 @@ function updateLive(c) {
   const sum = $('#summary'); if (!sum) return;
   const finalDone = r.ls.length && r.emptyW <= 1e-9;
   const msgs = [];
-  if (r.ls.length && !c.closed) {
+  if (r.ls.length && !c.closed && r.cand) {
+    if (r.remW > 1e-9) {
+      msgs.push(['', `🔐 <b>Curso candado:</b> tienes que aprobar cada bloque por separado; no se compensan entre sí.`]);
+      for (const h of r.heads) {
+        const nm = `<b>${esc(h.n.name)}</b>`;
+        if (h.secured) msgs.push(['ok', `✅ ${nm}: ya está asegurado.`]);
+        else if (h.failed) msgs.push(['bad', `❌ ${nm}: ya no alcanza (necesitarías ${fmt(h.need)}). Con el candado, el curso queda desaprobado.`]);
+        else if (h.need != null) msgs.push([h.need > c.max * 0.7 ? 'warn' : '', `${nm}: necesitas un promedio de <b>${fmt(h.need)}</b> en lo que falta de este bloque.`]);
+      }
+    }
+  } else if (r.ls.length && !c.closed) {
     if (r.remW <= 1e-9) { /* todo asegurado: lo muestra el recuadro de arriba */ }
     else if (r.status.k === 'ok') msgs.push(['ok', `🎉 Ya aseguraste el aprobado. Aunque saques ${fmt(0)} en lo que falta, apruebas.`]);
     else if (r.needLocked > c.max + 1e-9) msgs.push(['bad', `Necesitarías un promedio de <b>${fmt(r.needLocked)}</b> en el ${fmt(r.remW * 100)}% restante, pero el máximo es ${fmt(c.max)}. Ya no es posible aprobar.`]);
@@ -941,23 +1175,24 @@ function updateLive(c) {
   // Recuadro de resultado arriba del porcentaje
   const banner = $('#banner');
   if (banner) {
-    const ok = r.filledPts >= c.pass - 1e-9;
+    const ok = r.passed;
     const allLocked = r.ls.length && r.remW <= 1e-9;
+    const why = r.failedHeads.length ? `<div class="pend-note">🔐 Candado: desaprobaste ${r.failedHeads.map(h => `<b>${esc(h.n.name)}</b>`).join(' y ')}</div>` : '';
     let b = '';
     if (c.closed || allLocked) {
       b = `<div class="closed-banner ${ok ? 'ok' : 'bad'}"><span class="big">🎓</span><div>
         <b>${c.closed ? 'Curso cerrado' : (ok ? 'Curso aprobado' : 'Curso desaprobado')}</b>
-        <div>Nota final <b>${fmt(r.filledPts)}</b> · ${ok ? 'Aprobado ✅' : 'Desaprobado ❌'}</div></div></div>`;
+        <div>Nota final <b>${fmt(r.filledPts)}</b> · ${ok ? 'Aprobado ✅' : 'Desaprobado ❌'}</div>${why}</div></div>`;
     } else if (finalDone) {
       b = `<div class="closed-banner pending ${ok ? 'ok' : 'bad'}"><span class="big">${ok ? '🎓' : '📉'}</span><div>
         <b>${ok ? 'Curso aprobado' : 'Curso desaprobado'}</b>
         <div>Nota final <b>${fmt(r.filledPts)}</b> · Pendiente ⏳</div>
-        <div class="pend-note">Aún no bloqueas todas tus notas 🔓</div></div></div>`;
+        ${why}<div class="pend-note">Aún no bloqueas todas tus notas 🔓</div></div></div>`;
     }
     banner.innerHTML = b;
   }
   sum.innerHTML = `<div class="hero">
-    <div class="sum-top"><div><div class="label">🎯 Vas de aprobado</div><div class="bigpct">${fmt(r.progress * 100, 0)}%</div></div>
+    <div class="sum-top"><div><div class="label">🎯 Vas de aprobado${r.cand ? ' <span class="cand-tag">🔐 Candado</span>' : ''}</div><div class="bigpct">${fmt(r.progress * 100, 0)}%</div></div>
       <span class="chip ${r.status.k}">${r.status.t}</span></div>
     <div class="bar ${r.status.k === 'ok' ? 'ok' : ''}"><div style="width:${r.progress * 100}%"></div></div>
     <div class="stats">
@@ -982,9 +1217,16 @@ function updateLive(c) {
     ${msgs.map(([k, t]) => `<div class="need-msg ${k}">${t}</div>`).join('')}`;
 
   // Pista en cada evaluación vacía
+  const headOfLeaf = new Map();
+  r.heads.forEach(h => h.ls.forEach(l => headOfLeaf.set(l.node.id, h)));
   for (const { node } of r.ls) {
     const el = document.querySelector(`[data-need="${node.id}"]`); if (!el) continue;
-    if (node.grade != null || r.needEmpty == null) { el.textContent = ''; el.className = 'need'; continue; }
+    const ne = r.cand ? headOfLeaf.get(node.id).needEmpty : r.needEmpty;
+    if (node.grade != null || ne == null) { el.textContent = ''; el.className = 'need'; continue; }
+    if (ne <= 0) { el.textContent = 'Ya cubierto ✓'; el.className = 'need ok'; }
+    else if (ne > c.max) { el.textContent = `Necesitarías ${fmt(ne)} (no alcanza)`; el.className = 'need bad'; }
+    else { el.textContent = `Necesitas ≥ ${fmt(ne)}`; el.className = 'need'; }
+    continue;
     if (r.needEmpty <= 0) { el.textContent = 'Ya cubierto ✓'; el.className = 'need ok'; }
     else if (r.needEmpty > c.max) { el.textContent = `Necesitarías ${fmt(r.needEmpty)} (no alcanza)`; el.className = 'need bad'; }
     else { el.textContent = `Necesitas ≥ ${fmt(r.needEmpty)}`; el.className = 'need'; }
@@ -1020,12 +1262,16 @@ function renderConfig(c) {
   };
   const applyEdit = () => { if (isEdit) { Object.assign(orig, { name: c.name, max: c.max, pass: c.pass, items: c.items }); editing.snap = JSON.stringify(c); } };
   $('#app').innerHTML = `
+    ${isDraft && draft.fromPdf ? `<div class="from-pdf"><span class="big">📄</span><div><b>Esquema leído del sílabo</b><br>
+      Revisa nombres y pesos; puedes cambiar, agregar o quitar lo que quieras antes de guardar.${c.candado ? ' Detecté que es <b>curso candado</b>.' : ''}</div></div>` : ''}
     <section class="card">
       <label>Nombre del curso<input id="cName" value="${esc(c.name)}" autocomplete="off"></label>
       <div class="row2">
         <label>Nota máxima<input id="cMax" inputmode="decimal" value="${c.max}"></label>
         <label>Nota para aprobar<input id="cPass" inputmode="decimal" value="${c.pass}"></label>
       </div>
+      <label class="switch"><input type="checkbox" id="cCand" ${c.candado ? 'checked' : ''}><span class="sw"></span>
+        <span class="sw-txt"><b>🔐 Curso candado</b><small>Hay que aprobar cada bloque principal (ej. Teoría y Laboratorio) por separado.</small></span></label>
     </section>
     <h2 class="section-title">Evaluaciones y pesos</h2>
     <p class="muted small">Cada grupo debe sumar 100%. Usa <b>Subdividir</b> para que una evaluación se calcule a partir de otras internas (solo las de último nivel llevarán nota).</p>
@@ -1041,6 +1287,7 @@ function renderConfig(c) {
 
   $('#cName').oninput = e => { c.name = e.target.value.trim() || 'Sin nombre'; save(); };
   $('#cMax').oninput = e => { const v = parseNum(e.target.value); if (v > 0) { c.max = v; save(); } };
+  $('#cCand').onchange = e => { c.candado = e.target.checked; save(); };
   $('#cPass').oninput = e => { const v = parseNum(e.target.value); if (v > 0) { c.pass = v; save(); } };
 
   const app = $('#app');
@@ -1091,7 +1338,7 @@ function renderConfig(c) {
   });
   const cc = $('#closeCourse');
   if (cc) cc.onclick = () => {
-    const r = calc(c), ok = r.filledPts >= c.pass - 1e-9;
+    const r = calc(c), ok = r.passed;
     modal({
       title: '¿Cerrar curso?',
       body: `<p>Nota final: <b>${fmt(r.filledPts)}</b> · ${ok ? 'Aprobado ✅' : 'Desaprobado ❌'}</p>
