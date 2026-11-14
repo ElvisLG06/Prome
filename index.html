@@ -1269,7 +1269,19 @@ try { screen.orientation && screen.orientation.lock && screen.orientation.lock('
 
 /* App instalable y que funcione sin internet */
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  const hadController = !!navigator.serviceWorker.controller;
+  let pendingReload = false;
+  const editingNow = () => /\/config$|^#\/nuevo/.test(location.hash);
+  const doReload = () => { if (editingNow()) { pendingReload = true; } else location.reload(); };
+  // Cuando llega una versión nueva, recarga sola (pero no mientras editas un curso sin guardar)
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) doReload(); });
+  window.addEventListener('hashchange', () => { if (pendingReload && !editingNow()) location.reload(); });
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      // Revisa si hay versión nueva cada vez que vuelves a la app
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => {});
+  });
 }
 
 route();
