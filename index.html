@@ -26,7 +26,8 @@ body{position:fixed;inset:0;font-family:system-ui,-apple-system,"Segoe UI",Robot
   -webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 /* Un solo contenedor de scroll: evita saltos/rebotes al deslizar en el celular */
 #scroller{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
-  padding-bottom:calc(90px + env(safe-area-inset-bottom))}
+  padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+body.has-fab #scroller{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
 a{color:var(--primary)}
 .top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:12px 14px;
   padding-top:calc(12px + env(safe-area-inset-top));background:var(--bg);border-bottom:1px solid var(--line)}
@@ -336,7 +337,10 @@ input.grade:focus{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,v
 .tile{background:#fff;box-shadow:var(--shadow);border:none;border-top:4px solid var(--primary)}
 .tile:nth-child(2){border-top-color:#2aa5a0}
 .modal-box{border-radius:24px}
-.toast{background:#1f1a3d;color:#fff}
+.toast{background:#1f1a3d;color:#fff;bottom:calc(14px + env(safe-area-inset-bottom));font-size:.82rem;padding:8px 14px;width:max-content;max-width:90vw;
+  opacity:0;transform:translate(-50%,8px);transition:opacity .15s,transform .15s;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+body.has-fab .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
 </style>
 </head>
 <body>
@@ -549,9 +553,12 @@ function setHeader(title, backHref, actions = '', brand = false) {
   $('#topActions').innerHTML = actions;
 }
 let toastT;
-function toast(msg) {
+function toast(msg, ms) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
-  clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2400);
+  // Aparece rápido y se va solo (mensajes cortos duran menos)
+  requestAnimationFrame(() => t.classList.add('show'));
+  clearTimeout(toastT);
+  toastT = setTimeout(() => { t.classList.remove('show'); toastT = setTimeout(() => t.hidden = true, 160); }, ms || (msg.length > 40 ? 1800 : 1200));
 }
 let modalGen = 0;
 function modal({ title, body, actions }) {
@@ -748,7 +755,7 @@ $('#pdfFile').addEventListener('change', async e => {
 });
 
 /* ============ Router ============ */
-function setFab(label, fn) { const f = $('#fab'); f.textContent = label; f.onclick = fn; f.hidden = false; }
+function setFab(label, fn) { const f = $('#fab'); f.textContent = label; f.onclick = fn; f.hidden = false; document.body.classList.add('has-fab'); }
 let draft = null;   // curso nuevo que aún no se guarda: { cycleId, course }
 let editing = null; // copia de un curso que se está configurando: { orig, course, snap } (solo se aplica al Guardar)
 const cloneCourse = c => JSON.parse(JSON.stringify(c));
@@ -756,7 +763,7 @@ function route() {
   const p = (location.hash.slice(1) || '/').split('/').filter(Boolean);
   if (p[0] !== 'nuevo') draft = null;
   if (!(p[0] === 'curso' && p[2] === 'config')) editing = null;
-  $('#fab').hidden = true;          // salir sin guardar = no se guarda nada
+  $('#fab').hidden = true; document.body.classList.remove('has-fab');          // salir sin guardar = no se guarda nada
   if (p[0] === 'nuevo') {
     if (draft) renderConfig(draft.course); else { location.replace('#/'); renderCycles(); }
   } else if (p[0] === 'curso' && findCourse(p[1])) {
@@ -1084,7 +1091,7 @@ function renderCourse(c) {
   // Nota asegurada: tocar el recuadro no deja cambiarla
   $('#app').querySelectorAll('input.grade.is-locked').forEach(inp => {
     inp.addEventListener('focus', () => inp.blur());
-    inp.addEventListener('click', () => toast('Nota asegurada 🔒 · Mantén presionado el candado 1 s para cambiarla'));
+    inp.addEventListener('click', () => toast('Nota asegurada 🔒 · Mantén presionado el candado para cambiarla'));
   });
   $('#app').querySelectorAll('[data-lock]').forEach(b => {
     const { node } = findNode(c.items, b.dataset.lock);
@@ -1097,13 +1104,13 @@ function renderCourse(c) {
         keepScroll(() => renderCourse(c));
       };
     } else {
-      // Mantener presionado 1 s: desbloquear
-      holdButton(b, 1000, () => {
+      // Mantener presionado 0.5 s: desbloquear
+      holdButton(b, 500, () => {
         node.locked = false; save();
         if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
         keepScroll(() => renderCourse(c));
         toast('Nota desbloqueada');
-      }, () => toast('Mantén presionado 1 s para desbloquear'));
+      }, () => toast('Mantén presionado para desbloquear', 1000));
     }
   });
 }
@@ -1114,7 +1121,7 @@ function holdButton(el, ms, onDone, onShort) {
   const cancel = () => {
     if (!t) return;
     clearTimeout(t); t = null; el.classList.remove('holding');
-    if (Date.now() - start < 350 && onShort) onShort();
+    if (Date.now() - start < 250 && onShort) onShort();
   };
   el.addEventListener('pointerdown', e => {
     e.preventDefault();
