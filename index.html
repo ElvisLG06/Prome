@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#7c5cff">
+<meta name="theme-color" content="#5b5bd6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
@@ -12,12 +12,12 @@
 <title>Prome</title>
 <style>
 :root{
-  --bg:#f5f3ff; --card:#ffffff; --text:#1f1a3d; --muted:#6f6a92; --line:#e9e4fc;
-  --primary:#7c5cff; --primary-soft:#efeaff; --pink:#ff4d9d; --ok:#12b76a; --ok-soft:#e3f8ee;
+  --bg:#f6f7fb; --card:#ffffff; --text:#1f2238; --muted:#6b7090; --line:#e6e8f2;
+  --primary:#5b5bd6; --primary-soft:#eef0fc; --pink:#ff4d9d; --ok:#12b76a; --ok-soft:#e3f8ee;
   --warn:#f79009; --warn-soft:#fff3e0; --bad:#f04438; --bad-soft:#ffebe9;
-  --grad:linear-gradient(135deg,#7c5cff 0%,#b04cff 50%,#ff4d9d 100%);
-  --radius:18px; --shadow:0 2px 6px rgba(80,50,180,.06),0 8px 24px rgba(80,50,180,.08);
-  --c:#7c5cff; color-scheme:light;
+  --grad:linear-gradient(135deg,#5b5bd6 0%,#4a6fdc 100%);
+  --radius:18px; --shadow:0 1px 2px rgba(30,30,70,.05),0 3px 10px rgba(30,30,70,.05);
+  --c:#5b5bd6; color-scheme:light;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
@@ -205,11 +205,11 @@ body.is-dragging,body.is-dragging *{cursor:grabbing!important}
 
 /* ================= Tema con más vida ================= */
 [hidden]{display:none!important}
-body{background:radial-gradient(1200px 500px at 100% -10%,#ffe3f1 0%,transparent 60%),radial-gradient(900px 500px at -10% 0%,#e6e0ff 0%,transparent 55%),var(--bg)}
+body{background:var(--bg)}
 .top{background:rgba(255,255,255,.75);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(124,92,255,.12)}
 .top h1{font-weight:800}
 .brand{display:inline-flex;align-items:center;gap:8px}
-.brand .logo{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:11px;background:var(--grad);font-size:1.1rem;box-shadow:0 4px 12px rgba(176,76,255,.35)}
+.brand .logo{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:11px;background:var(--grad);font-size:1.1rem;box-shadow:none}
 .brand-name{font-size:1.45rem;font-weight:900;letter-spacing:-.02em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .icon-btn{background:#fff;border:1px solid var(--line)}
 .hello{margin:6px 2px 18px}
@@ -222,18 +222,18 @@ body{background:radial-gradient(1200px 500px at 100% -10%,#ffe3f1 0%,transparent
 .list>.pop:nth-child(2){animation-delay:.04s}.list>.pop:nth-child(3){animation-delay:.08s}.list>.pop:nth-child(4){animation-delay:.12s}.list>.pop:nth-child(n+5){animation-delay:.16s}
 
 .btn{border-radius:14px}
-.btn.primary,.btn.grad{background:var(--grad);border:none;color:#fff;box-shadow:0 6px 18px rgba(176,76,255,.3)}
+.btn.primary,.btn.grad{background:var(--grad);border:none;color:#fff;box-shadow:0 2px 6px rgba(60,70,180,.18)}
 .btn.grad{font-size:1.02rem;padding:14px 18px}
 .btn:active,.tile:active{transform:scale(.97)}
 .fab{z-index:30}
 .fab:active{transform:translateX(-50%) scale(.97)}
-.fab{background:var(--grad);box-shadow:0 10px 26px rgba(176,76,255,.45);font-size:1.02rem}
+.fab{background:var(--grad);box-shadow:0 4px 12px rgba(60,70,180,.25);font-size:1.02rem}
 .link{color:var(--c)}
 
 /* ciclos */
 .cycle-row{display:flex;align-items:center;gap:10px;padding:16px;border-radius:var(--radius);cursor:pointer;color:#fff;position:relative;overflow:hidden;
-  background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 55%,#ff4d9d));box-shadow:0 10px 24px color-mix(in srgb,var(--c) 35%,transparent)}
-.cycle-row::after{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14)}
+  background:linear-gradient(135deg,color-mix(in srgb,var(--c) 88%,#fff),color-mix(in srgb,var(--c) 80%,#1f2238));box-shadow:0 3px 10px color-mix(in srgb,var(--c) 18%,transparent)}
+.cycle-row::after{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.08)}
 .cy-main{flex:1;min-width:0}
 .cy-name{font-size:1.25rem;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cy-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -247,15 +247,15 @@ body{background:radial-gradient(1200px 500px at 100% -10%,#ffe3f1 0%,transparent
 .course-row .cr-name{font-size:1.08rem}
 .course-row.closed{background:#fff;opacity:.92}
 .bar{height:10px;background:var(--primary-soft)}
-.bar>div{background:linear-gradient(90deg,var(--c),color-mix(in srgb,var(--c) 50%,#ff4d9d))}
+.bar>div{background:var(--c)}
 .bar.ok>div{background:linear-gradient(90deg,#12b76a,#34d399)}
 .chip{background:var(--primary-soft);color:var(--primary)}
 .chip.mid{background:#e8f1ff;color:#2563eb}
 
 /* resumen */
 .summary{background:transparent;border:none;box-shadow:none;padding:0}
-.hero{background:var(--grad);color:#fff;border-radius:22px;padding:18px;box-shadow:0 14px 30px rgba(176,76,255,.35);position:relative;overflow:hidden}
-.hero::before{content:"";position:absolute;right:-50px;top:-50px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.12)}
+.hero{background:var(--grad);color:#fff;border-radius:22px;padding:18px;box-shadow:0 4px 14px rgba(60,70,180,.18);position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;right:-50px;top:-50px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.07)}
 .hero .sum-top .label{color:rgba(255,255,255,.9);font-weight:700}
 .hero .bigpct{font-size:2.8rem}
 .hero .chip{background:rgba(255,255,255,.95);position:relative}
@@ -309,7 +309,7 @@ input.grade:focus{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,v
 .start-card .btn{margin-top:6px;min-width:180px}
 .close-box{border-radius:18px}
 .tile{background:#fff;box-shadow:var(--shadow);border:none;border-top:4px solid var(--primary)}
-.tile:nth-child(2){border-top-color:var(--pink)}
+.tile:nth-child(2){border-top-color:#2aa5a0}
 .modal-box{border-radius:24px}
 .toast{background:#1f1a3d;color:#fff}
 </style>
@@ -367,7 +367,7 @@ const parseNum = v => {
   return isFinite(n) ? n : NaN;
 };
 /* Colores para diferenciar cada bloque principal */
-const COLORS = ['#7c5cff', '#ff4d9d', '#14b8c4', '#ff9f1c', '#22c55e', '#3b82f6', '#f43f5e', '#a855f7'];
+const COLORS = ['#5b6ee1', '#e8798f', '#2aa5a0', '#e9a23b', '#4caf7a', '#4a90d9', '#d9675b', '#9a7ad6'];
 const colorAt = i => COLORS[i % COLORS.length];
 const isLeaf = n => !n.children || n.children.length === 0;
 const newNode = (name, weight) => ({ id: uid(), name, weight, children: [], grade: null, locked: false });
