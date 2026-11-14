@@ -190,6 +190,7 @@ body.is-dragging,body.is-dragging *{cursor:grabbing!important}
 .check{flex-direction:row;align-items:center;gap:10px;font-size:.95rem;color:var(--text);font-weight:500;margin:0;padding:10px 4px;border-bottom:1px solid var(--line)}
 .check input{width:20px;height:20px;accent-color:var(--primary);flex-shrink:0}
 .check.all{font-weight:700;border-bottom:2px solid var(--line)}
+.imp-new{width:100%;height:42px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);padding:0 11px;font-size:1rem;margin:8px 0 4px}
 .check-head{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin:12px 0 2px}
 .closed-banner{display:flex;align-items:center;gap:12px;padding:14px;border-radius:var(--radius);margin-bottom:14px;border:1.5px solid}
 .closed-banner .big{font-size:2rem}
@@ -492,6 +493,7 @@ function setHeader(title, backHref, actions = '', brand = false) {
   else t.textContent = title;
   $('.top').classList.toggle('home', brand);
   const b = $('#back');
+  b.onclick = null;
   if (backHref) { b.hidden = false; b.href = backHref; } else b.hidden = true;
   $('#topActions').innerHTML = actions;
 }
@@ -530,15 +532,21 @@ $('#mBody').addEventListener('keydown', e => {
 /* ============ Router ============ */
 function setFab(label, fn) { const f = $('#fab'); f.textContent = label; f.onclick = fn; f.hidden = false; }
 let draft = null;   // curso nuevo que aún no se guarda: { cycleId, course }
+let editing = null; // copia de un curso que se está configurando: { orig, course, snap } (solo se aplica al Guardar)
+const cloneCourse = c => JSON.parse(JSON.stringify(c));
 function route() {
   const p = (location.hash.slice(1) || '/').split('/').filter(Boolean);
   if (p[0] !== 'nuevo') draft = null;
+  if (!(p[0] === 'curso' && p[2] === 'config')) editing = null;
   $('#fab').hidden = true;          // salir sin guardar = no se guarda nada
   if (p[0] === 'nuevo') {
     if (draft) renderConfig(draft.course); else { location.replace('#/'); renderCycles(); }
   } else if (p[0] === 'curso' && findCourse(p[1])) {
     const c = findCourse(p[1]);
-    if (p[2] === 'config' && !c.closed) renderConfig(c); else renderCourse(c);
+    if (p[2] === 'config' && !c.closed) {
+      if (!editing || editing.orig !== c) editing = { orig: c, course: cloneCourse(c), snap: JSON.stringify(c) };
+      renderConfig(editing.course);
+    } else renderCourse(c);
   } else if (p[0] === 'ciclo' && findCycle(p[1])) renderCycle(findCycle(p[1]));
   else renderCycles();
   $('#scroller').scrollTop = 0;
@@ -711,15 +719,9 @@ function serializeCourse(c, withGrades) {
   return { name: c.name, max: c.max, pass: c.pass, closed: withGrades ? !!c.closed : false, items: c.items.map(ser) };
 }
 function exportCourses(courses, withGrades) {
-  const groups = [];
-  for (const c of courses) {
-    const y = cycleOf(c);
-    let g = groups.find(x => x.y === y);
-    if (!g) groups.push(g = { y, courses: [] });
-    g.courses.push(serializeCourse(c, withGrades));
-  }
-  const data = { type: 'prome', version: 2, withGrades, exportedAt: new Date().toISOString(),
-    cycles: groups.map(g => ({ name: g.y ? g.y.name : 'Importados', courses: g.courses })) };
+  // Solo los cursos, sin ciclo: al importar se elige a qué ciclo agregarlos
+  const data = { type: 'prome', version: 3, withGrades, exportedAt: new Date().toISOString(),
+    courses: courses.map(c => serializeCourse(c, withGrades)) };
   const name = courses.length === 1
     ? `${safeFile(courses[0].name)}${withGrades ? '' : '-formato'}.json`
     : `prome-${withGrades ? 'con-notas' : 'formato'}-${new Date().toISOString().slice(0, 10)}.json`;
@@ -746,40 +748,60 @@ function buildCourse(t) {
 }
 const safeFile = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'curso';
 
-/* Lee cualquier formato (nuevo, curso suelto o respaldo antiguo) y devuelve [{cycle, course}] */
+/* Lee cualquier formato (nuevo, con ciclos o curso suelto) y devuelve la lista de cursos */
 function parseImport(s) {
   const out = [];
   if (!s || typeof s !== 'object') return out;
-  if (Array.isArray(s.cycles)) s.cycles.forEach(cy => (cy.courses || []).forEach(c => out.push({ cycle: cy.name, course: c })));
-  else if (Array.isArray(s.courses)) s.courses.forEach(c => out.push({ cycle: null, course: c }));
-  else if (Array.isArray(s.items)) out.push({ cycle: null, course: s });
-  return out;
-}
-function getOrCreateCycle(name) {
-  let y = state.cycles.find(x => x.name.trim().toLowerCase() === String(name).trim().toLowerCase());
-  if (!y) { y = { id: uid(), name: String(name), courses: [] }; state.cycles.push(y); }
-  return y;
+  if (Array.isArray(s.courses)) s.courses.forEach(c => out.push(c));
+  if (Array.isArray(s.cycles)) s.cycles.forEach(cy => (cy.courses || []).forEach(c => out.push(c)));
+  if (!out.length && Array.isArray(s.items)) out.push(s);
+  return out.filter(c => c && Array.isArray(c.items));
 }
 $('#importFile').addEventListener('change', async e => {
   const files = [...e.target.files]; e.target.value = '';
   if (!files.length) return;
-  let count = 0, bad = 0, lastCycle = null;
+  const courses = []; let bad = 0;
   for (const f of files) {
-    let s;
-    try { s = JSON.parse(await f.text()); } catch (err) { bad++; continue; }
-    const entries = parseImport(s);
-    if (!entries.length) { bad++; continue; }
-    for (const { cycle, course } of entries) {
-      const y = importTarget || getOrCreateCycle(cycle || 'Importados');
-      y.courses.push(buildCourse(course)); count++; lastCycle = y;
-    }
+    try { const got = parseImport(JSON.parse(await f.text())); if (got.length) courses.push(...got); else bad++; }
+    catch (err) { bad++; }
   }
-  save();
-  if (count) {
-    toast(`Se importaron ${count} curso${count === 1 ? '' : 's'}${bad ? ` · ${bad} archivo(s) no válido(s)` : ''}`);
-    if (!importTarget && lastCycle && state.cycles.length) route(); else route();
-  } else toast('Archivo no válido');
+  if (!courses.length) { toast('Archivo no válido'); return; }
+  chooseCycle(courses, importTarget, bad);
 });
+
+/* Siempre se elige a qué ciclo agregar lo importado */
+function chooseCycle(courses, preselect, bad) {
+  const n = courses.length;
+  const sel = preselect ? preselect.id : (state.cycles[0] ? state.cycles[0].id : '__new');
+  modal({
+    title: '¿A qué ciclo lo agrego?',
+    body: `<p class="muted small">${n} curso${n === 1 ? '' : 's'}: ${courses.slice(0, 4).map(c => `<b>${esc(c.name || 'Curso')}</b>`).join(', ')}${n > 4 ? '…' : ''}${bad ? ` · ${bad} archivo(s) no válido(s)` : ''}</p>
+      <div class="check-list">
+        ${state.cycles.map(y => `<label class="check"><input type="radio" name="impCy" value="${y.id}" ${y.id === sel ? 'checked' : ''}><span>🗓️ ${esc(y.name)}</span></label>`).join('')}
+        <label class="check"><input type="radio" name="impCy" value="__new" ${sel === '__new' ? 'checked' : ''}><span>＋ Nuevo ciclo</span></label>
+        <input id="impNewName" placeholder="Nombre del nuevo ciclo (ej. 2026-2)" autocomplete="off" class="imp-new" ${sel === '__new' ? '' : 'hidden'}>
+      </div>`,
+    actions: [{ t: 'Cancelar' }, { t: '📥 Importar', primary: true, fn: () => {
+      const v = (document.querySelector('input[name=impCy]:checked') || {}).value;
+      let y;
+      if (v === '__new') {
+        const name = $('#impNewName').value.trim();
+        if (!name) { toast('Escribe el nombre del nuevo ciclo'); return false; }
+        y = { id: uid(), name, courses: [] }; state.cycles.push(y);
+      } else y = findCycle(v);
+      if (!y) { toast('Elige un ciclo'); return false; }
+      courses.forEach(c => y.courses.push(buildCourse(c)));
+      save();
+      toast(`Se importaron ${n} curso${n === 1 ? '' : 's'} a ${y.name} 🎉`);
+      if (location.hash === `#/ciclo/${y.id}`) route(); else location.hash = `#/ciclo/${y.id}`;
+    } }]
+  });
+  document.querySelectorAll('input[name=impCy]').forEach(r => r.onchange = () => {
+    const isNew = r.value === '__new' && r.checked;
+    $('#impNewName').hidden = !isNew;
+    if (isNew) $('#impNewName').focus();
+  });
+}
 
 /* ============ Curso: ingresar notas ============ */
 function renderCourse(c) {
@@ -967,7 +989,23 @@ function updateLive(c) {
 /* ============ Configuración del curso ============ */
 function renderConfig(c) {
   const isDraft = !!(draft && draft.course === c);
-  setHeader(isDraft ? 'Nuevo curso' : 'Configurar curso', isDraft ? `#/ciclo/${draft.cycleId}` : `#/curso/${c.id}`);
+  const isEdit = !!(editing && editing.course === c);
+  const orig = isEdit ? editing.orig : c;
+  const backTo = isDraft ? `#/ciclo/${draft.cycleId}` : `#/curso/${c.id}`;
+  setHeader(isDraft ? 'Nuevo curso' : 'Configurar curso', backTo);
+  // Si hay cambios sin guardar, avisar antes de salir
+  const dirty = () => isDraft ? c.items.length > 0 : (isEdit && JSON.stringify(c) !== editing.snap);
+  $('#back').onclick = e => {
+    if (!dirty()) return;
+    e.preventDefault();
+    modal({
+      title: '¿Salir sin guardar?',
+      body: `<p>Tienes cambios sin guardar. Si sales ahora, <b>no se aplicarán</b>.</p>`,
+      actions: [{ t: 'Salir sin guardar', danger: true, fn: () => { location.hash = backTo; } },
+                { t: '💾 Guardar', primary: true, fn: () => { $('#saveCourse').click(); } }]
+    });
+  };
+  const applyEdit = () => { if (isEdit) { Object.assign(orig, { name: c.name, max: c.max, pass: c.pass, items: c.items }); editing.snap = JSON.stringify(c); } };
   $('#app').innerHTML = `
     <section class="card">
       <label>Nombre del curso<input id="cName" value="${esc(c.name)}" autocomplete="off"></label>
@@ -1046,8 +1084,9 @@ function renderConfig(c) {
       body: `<p>Nota final: <b>${fmt(r.filledPts)}</b> · ${ok ? 'Aprobado ✅' : 'Desaprobado ❌'}</p>
         <p class="muted small">Se asegurarán todas las notas y el curso quedará cerrado. Podrás reabrirlo desde la tuerca si lo necesitas.</p>`,
       actions: [{ t: 'Cancelar' }, { t: 'Cerrar curso', primary: true, fn: () => {
-        leaves(c.items).forEach(({ node }) => { if (hasGrade(node)) node.locked = true; });
-        c.closed = true; save(); location.hash = `#/curso/${c.id}`; toast('Curso cerrado 🎓');
+        applyEdit();
+        leaves(orig.items).forEach(({ node }) => { if (hasGrade(node)) node.locked = true; });
+        orig.closed = true; save(); location.hash = `#/curso/${orig.id}`; toast('Curso cerrado 🎓');
       } }]
     });
   };
@@ -1061,7 +1100,7 @@ function renderConfig(c) {
       if (!y) { toast('El ciclo ya no existe'); return; }
       y.courses.push(c); draft = null; save();
       toast('Curso guardado 🎉');
-    } else { save(); toast('Guardado 💾'); }
+    } else { applyEdit(); save(); toast('Cambios guardados 💾'); }
     location.hash = `#/curso/${c.id}`;
   };
   const dc = $('#delCourse');
@@ -1069,7 +1108,7 @@ function renderConfig(c) {
     title: '¿Eliminar curso?',
     body: `<p>Se borrará <b>${esc(c.name)}</b> con todas sus notas. No se puede deshacer.</p>`,
     actions: [{ t: 'Cancelar' }, { t: 'Eliminar', danger: true, fn: () => {
-      const y = cycleOf(c); if (y) y.courses = y.courses.filter(x => x !== c); save(); location.hash = y ? `#/ciclo/${y.id}` : '#/';
+      const y = cycleOf(orig); if (y) y.courses = y.courses.filter(x => x !== orig); save(); location.hash = y ? `#/ciclo/${y.id}` : '#/';
     } }]
   });
 }
