@@ -3,27 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#4f46e5">
+<meta name="theme-color" content="#7c5cff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Mis Notas</title>
+<title>Prome</title>
 <style>
 :root{
-  --bg:#f4f5fb; --card:#ffffff; --text:#1c1d29; --muted:#6b6f85; --line:#e3e5ef;
-  --primary:#4f46e5; --primary-soft:#eceafd; --ok:#16a34a; --ok-soft:#e6f6ec;
-  --warn:#d97706; --warn-soft:#fdf3e2; --bad:#dc2626; --bad-soft:#fdeaea;
-  --radius:14px; --shadow:0 1px 3px rgba(20,20,50,.06),0 4px 14px rgba(20,20,50,.05);
-}
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#111219; --card:#1b1c26; --text:#ececf3; --muted:#9a9db3; --line:#2c2e3c;
-    --primary:#818cf8; --primary-soft:#272a4a; --ok:#4ade80; --ok-soft:#173022;
-    --warn:#fbbf24; --warn-soft:#352a12; --bad:#f87171; --bad-soft:#3a1c1c;
-    --shadow:none;
-  }
+  --bg:#f5f3ff; --card:#ffffff; --text:#1f1a3d; --muted:#6f6a92; --line:#e9e4fc;
+  --primary:#7c5cff; --primary-soft:#efeaff; --pink:#ff4d9d; --ok:#12b76a; --ok-soft:#e3f8ee;
+  --warn:#f79009; --warn-soft:#fff3e0; --bad:#f04438; --bad-soft:#ffebe9;
+  --grad:linear-gradient(135deg,#7c5cff 0%,#b04cff 50%,#ff4d9d 100%);
+  --radius:18px; --shadow:0 2px 6px rgba(80,50,180,.06),0 8px 24px rgba(80,50,180,.08);
+  --c:#7c5cff; color-scheme:light;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
@@ -208,17 +202,128 @@ body.is-dragging,body.is-dragging *{cursor:grabbing!important}
   .rotate{display:flex;position:fixed;inset:0;z-index:200;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px}
   .rotate .big{font-size:3rem}
 }
+
+/* ================= Tema con más vida ================= */
+[hidden]{display:none!important}
+body{background:radial-gradient(1200px 500px at 100% -10%,#ffe3f1 0%,transparent 60%),radial-gradient(900px 500px at -10% 0%,#e6e0ff 0%,transparent 55%),var(--bg)}
+.top{background:rgba(255,255,255,.75);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(124,92,255,.12)}
+.top h1{font-weight:800}
+.brand{display:inline-flex;align-items:center;gap:8px}
+.brand .logo{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:11px;background:var(--grad);font-size:1.1rem;box-shadow:0 4px 12px rgba(176,76,255,.35)}
+.brand-name{font-size:1.45rem;font-weight:900;letter-spacing:-.02em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.icon-btn{background:#fff;border:1px solid var(--line)}
+.hello{margin:6px 2px 18px}
+.hello-t{font-size:1.6rem;font-weight:900;letter-spacing:-.02em}
+.hello-s{color:var(--muted);font-weight:600}
+.list-title{color:var(--text);font-size:.85rem;letter-spacing:.02em}
+.list{gap:12px}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.pop{animation:pop .35s ease both}
+.list>.pop:nth-child(2){animation-delay:.04s}.list>.pop:nth-child(3){animation-delay:.08s}.list>.pop:nth-child(4){animation-delay:.12s}.list>.pop:nth-child(n+5){animation-delay:.16s}
+
+.btn{border-radius:14px}
+.btn.primary,.btn.grad{background:var(--grad);border:none;color:#fff;box-shadow:0 6px 18px rgba(176,76,255,.3)}
+.btn.grad{font-size:1.02rem;padding:14px 18px}
+.btn:active,.tile:active{transform:scale(.97)}
+.fab{z-index:30}
+.fab:active{transform:translateX(-50%) scale(.97)}
+.fab{background:var(--grad);box-shadow:0 10px 26px rgba(176,76,255,.45);font-size:1.02rem}
+.link{color:var(--c)}
+
+/* ciclos */
+.cycle-row{display:flex;align-items:center;gap:10px;padding:16px;border-radius:var(--radius);cursor:pointer;color:#fff;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 55%,#ff4d9d));box-shadow:0 10px 24px color-mix(in srgb,var(--c) 35%,transparent)}
+.cycle-row::after{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14)}
+.cy-main{flex:1;min-width:0}
+.cy-name{font-size:1.25rem;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cy-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cy-meta span{background:rgba(255,255,255,.22);padding:4px 9px;border-radius:999px;font-size:.75rem;font-weight:700}
+.cy-edit{position:relative;z-index:1;width:40px;height:40px;border-radius:12px;border:none;background:rgba(255,255,255,.25);font-size:1rem;cursor:pointer}
+.cycle-row .chev{position:relative;z-index:1;font-size:1.8rem;color:#fff;opacity:.9}
+.cycle-title{display:block;width:100%;background:none;border:1.5px dashed var(--line);border-radius:12px;padding:8px;color:var(--muted);font:inherit;font-size:.8rem;font-weight:600;margin-bottom:14px;cursor:pointer}
+
+/* cursos */
+.course-row{border:none;border-left:6px solid var(--c);border-radius:var(--radius)}
+.course-row .cr-name{font-size:1.08rem}
+.course-row.closed{background:#fff;opacity:.92}
+.bar{height:10px;background:var(--primary-soft)}
+.bar>div{background:linear-gradient(90deg,var(--c),color-mix(in srgb,var(--c) 50%,#ff4d9d))}
+.bar.ok>div{background:linear-gradient(90deg,#12b76a,#34d399)}
+.chip{background:var(--primary-soft);color:var(--primary)}
+.chip.mid{background:#e8f1ff;color:#2563eb}
+
+/* resumen */
+.summary{background:transparent;border:none;box-shadow:none;padding:0}
+.hero{background:var(--grad);color:#fff;border-radius:22px;padding:18px;box-shadow:0 14px 30px rgba(176,76,255,.35);position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;right:-50px;top:-50px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.12)}
+.hero .sum-top .label{color:rgba(255,255,255,.9);font-weight:700}
+.hero .bigpct{font-size:2.8rem}
+.hero .chip{background:rgba(255,255,255,.95);position:relative}
+.hero .bar{background:rgba(255,255,255,.3)}
+.hero .bar>div,.hero .bar.ok>div{background:#fff}
+.hero .stats>div{background:rgba(255,255,255,.18);border-radius:12px}
+.hero .stats span,.hero .stats small{color:rgba(255,255,255,.85)}
+.heads-title{color:var(--text);margin-top:18px}
+.head-card{background:#fff;border:none;border-top:5px solid var(--c);box-shadow:var(--shadow);border-radius:14px}
+.head-card.ok{border-top-color:var(--c);background:linear-gradient(180deg,#fff,var(--ok-soft))}
+.head-card.bad{border-top-color:var(--c);background:linear-gradient(180deg,#fff,var(--bad-soft))}
+.head-card .hc-val{font-size:1.8rem}
+.need-msg{background:#fff;box-shadow:var(--shadow);border-left:4px solid var(--primary)}
+.need-msg.ok{background:#fff;border-left-color:var(--ok)} .need-msg.bad{background:#fff;border-left-color:var(--bad)} .need-msg.warn{background:#fff;border-left-color:var(--warn)}
+#summary{margin-bottom:16px}
+
+/* bloques del curso */
+.group{border:none}
+.group.blk{border-left:6px solid var(--c)}
+.group.blk>.group-head{background:color-mix(in srgb,var(--c) 14%,#fff)}
+.group.blk>.group-head .group-name{color:color-mix(in srgb,var(--c) 75%,#000)}
+.group .group{border:1px solid color-mix(in srgb,var(--c) 25%,#fff);border-left:3px solid var(--c);border-radius:12px}
+.group .group .group-head{background:color-mix(in srgb,var(--c) 6%,#fff)}
+.group .group-body .group{border-right:none;border-radius:12px 0 0 12px;margin-right:-8px}
+.group .group .group-body{padding-right:8px}
+.group-val{color:color-mix(in srgb,var(--c) 75%,#000)}
+.leaf{border-color:var(--line)}
+.leaf.blk{border:none;border-left:6px solid var(--c);border-radius:var(--radius)}
+.leaf.locked{background:linear-gradient(90deg,var(--ok-soft),#fff);border-color:var(--ok)}
+input.grade{border-radius:12px;background:#f8f6ff}
+input.grade:focus{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 20%,transparent)}
+.lock-btn{border-radius:12px;background:#fff}
+.lock-btn.on{background:linear-gradient(135deg,#12b76a,#34d399);border-color:transparent}
+.closed-banner{border-radius:20px}
+
+/* configuración */
+.card{border:none}
+.cfg-list.root>.cfg-node.blk{border:none;border-left:6px solid var(--c);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 9%,#fff),#fff 70%)}
+.cfg-list.root>.cfg-node.blk>.cfg-head .cfg-name{color:color-mix(in srgb,var(--c) 75%,#000)}
+.cfg-name:focus,.cfg-w:focus{border-color:var(--c)!important}
+/* Subdivisiones: barra solo a la izquierda y usan todo el ancho hacia la derecha */
+.cfg-node .cfg-list{margin:10px -10px 0 -2px;padding:8px 0 4px 8px;background:transparent;border:none;border-left:3px solid var(--c);border-radius:0}
+.cfg-list.root>.cfg-node.blk>.cfg-list{margin-right:-14px}
+.cfg-node .cfg-list>.cfg-node{padding:8px 10px 8px 8px;border-radius:12px 0 0 12px;border-right:none;background:#fff}
+.cfg-node .cfg-list>.cfg-foot{padding-right:10px}
+.cfg-node .cfg-list .grip{width:20px}
+.cfg-node .cfg-list .pct{width:84px}
+.start-card{text-align:center;background:#fff;border-radius:22px;padding:26px 18px;box-shadow:var(--shadow);border:2px dashed color-mix(in srgb,var(--primary) 35%,#fff)}
+.start-card .big{font-size:2.6rem}
+.start-card b{font-size:1.15rem}
+.start-card .btn{margin-top:6px;min-width:180px}
+.close-box{border-radius:18px}
+.tile{background:#fff;box-shadow:var(--shadow);border:none;border-top:4px solid var(--primary)}
+.tile:nth-child(2){border-top-color:var(--pink)}
+.modal-box{border-radius:24px}
+.toast{background:#1f1a3d;color:#fff}
 </style>
 </head>
 <body>
 <div id="scroller">
 <header class="top">
   <a id="back" class="icon-btn" hidden aria-label="Volver">‹</a>
-  <h1 id="title">Mis Notas</h1>
+  <h1 id="title">Prome</h1>
   <div id="topActions"></div>
 </header>
 <main id="app"></main>
 </div>
+<button class="fab" id="fab" hidden></button>
 <div class="rotate"><div class="big">📱</div><b>Gira tu teléfono</b><span class="muted">Esta app se usa solo en vertical.</span></div>
 
 <div id="modal" class="modal" hidden>
@@ -261,6 +366,9 @@ const parseNum = v => {
   const n = Number(v);
   return isFinite(n) ? n : NaN;
 };
+/* Colores para diferenciar cada bloque principal */
+const COLORS = ['#7c5cff', '#ff4d9d', '#14b8c4', '#ff9f1c', '#22c55e', '#3b82f6', '#f43f5e', '#a855f7'];
+const colorAt = i => COLORS[i % COLORS.length];
 const isLeaf = n => !n.children || n.children.length === 0;
 const newNode = (name, weight) => ({ id: uid(), name, weight, children: [], grade: null, locked: false });
 const allCourses = () => state.cycles.flatMap(y => y.courses);
@@ -377,8 +485,11 @@ function groupValue(n) {
 }
 
 /* ============ UI base ============ */
-function setHeader(title, backHref, actions = '') {
-  $('#title').textContent = title;
+function setHeader(title, backHref, actions = '', brand = false) {
+  const t = $('#title');
+  if (brand) t.innerHTML = `<span class="brand"><span class="logo">🎯</span><span class="brand-name">${esc(title)}</span></span>`;
+  else t.textContent = title;
+  $('.top').classList.toggle('home', brand);
   const b = $('#back');
   if (backHref) { b.hidden = false; b.href = backHref; } else b.hidden = true;
   $('#topActions').innerHTML = actions;
@@ -416,9 +527,15 @@ $('#mBody').addEventListener('keydown', e => {
 });
 
 /* ============ Router ============ */
+function setFab(label, fn) { const f = $('#fab'); f.textContent = label; f.onclick = fn; f.hidden = false; }
+let draft = null;   // curso nuevo que aún no se guarda: { cycleId, course }
 function route() {
   const p = (location.hash.slice(1) || '/').split('/').filter(Boolean);
-  if (p[0] === 'curso' && findCourse(p[1])) {
+  if (p[0] !== 'nuevo') draft = null;
+  $('#fab').hidden = true;          // salir sin guardar = no se guarda nada
+  if (p[0] === 'nuevo') {
+    if (draft) renderConfig(draft.course); else { location.replace('#/'); renderCycles(); }
+  } else if (p[0] === 'curso' && findCourse(p[1])) {
     const c = findCourse(p[1]);
     if (p[2] === 'config' && !c.closed) renderConfig(c); else renderCourse(c);
   } else if (p[0] === 'ciclo' && findCycle(p[1])) renderCycle(findCycle(p[1]));
@@ -431,25 +548,31 @@ window.addEventListener('hashchange', route);
 
 /* ============ Inicio: ciclos ============ */
 function renderCycles() {
-  setHeader('Mis Notas', null, `<button class="icon-btn" id="menuBtn" aria-label="Opciones">⋯</button>`);
-  let html = `<div class="list-title">Mis ciclos</div>`;
+  setHeader('Prome', null, `<button class="icon-btn" id="menuBtn" aria-label="Opciones">⋯</button>`, true);
+  let html = `<div class="hello"><div class="hello-t">¡Hola! 👋</div><div class="hello-s">Tus notas, bajo control ✨</div></div>
+    <div class="list-title">🗓️ Mis ciclos</div>`;
   if (!state.cycles.length) {
     html += `<div class="empty"><div class="big">🗓️</div><p><b>Aún no tienes ciclos</b></p>
-      <p class="muted">Crea tu ciclo actual (por ejemplo, 2026-2) y dentro agrega tus cursos.</p></div>`;
+      <p class="muted">Crea tu ciclo actual (por ejemplo, 2026-2) y dentro agrega tus cursos. 🚀</p></div>`;
   } else {
-    html += `<div class="list">${state.cycles.map(y => {
+    html += `<div class="list">${state.cycles.map((y, i) => {
       const n = y.courses.length;
       const closed = y.courses.filter(c => c.closed).length;
       const ok = y.courses.filter(c => { const r = calc(c); return r.status.k === 'ok'; }).length;
-      return `<a class="course-row cycle-row" href="#/ciclo/${y.id}">
-        <div class="cr-top"><span class="cr-name">🗓️ ${esc(y.name)}</span><span class="chev">›</span></div>
-        <div class="cr-meta"><span>${n} curso${n === 1 ? '' : 's'}</span>
-        <span>${ok} aprobado${ok === 1 ? '' : 's'}${closed ? ` · ${closed} cerrado${closed === 1 ? '' : 's'}` : ''}</span></div></a>`;
+      return `<div class="cycle-row pop" style="--c:${colorAt(i)}" data-go="#/ciclo/${y.id}">
+        <div class="cy-main"><div class="cy-name">${esc(y.name)}</div>
+          <div class="cy-meta"><span>📚 ${n} curso${n === 1 ? '' : 's'}</span><span>✅ ${ok} aprobado${ok === 1 ? '' : 's'}</span>${closed ? `<span>🎓 ${closed} cerrado${closed === 1 ? '' : 's'}</span>` : ''}</div></div>
+        <button class="cy-edit" data-edit="${y.id}" aria-label="Editar nombre">✏️</button>
+        <span class="chev">›</span></div>`;
     }).join('')}</div>`;
   }
-  html += `<button class="fab" id="addCycle">+ Nuevo ciclo</button>`;
   $('#app').innerHTML = html;
-  $('#addCycle').onclick = () => cycleModal(null);
+  setFab('＋ Nuevo ciclo', () => cycleModal(null));
+  $('#app').querySelectorAll('[data-go]').forEach(el => el.onclick = e => {
+    const ed = e.target.closest('[data-edit]');
+    if (ed) { e.stopPropagation(); cycleModal(findCycle(ed.dataset.edit)); return; }
+    location.hash = el.dataset.go;
+  });
   $('#menuBtn').onclick = () => optionsMenu(null);
 }
 
@@ -481,30 +604,30 @@ function cycleModal(y) {
 function renderCycle(y) {
   setHeader(y.name, '#/', `<button class="icon-btn" id="menuBtn" aria-label="Opciones">⋯</button>
     <button class="icon-btn" id="cycleCfg" aria-label="Editar ciclo">⚙︎</button>`);
-  let html = `<div class="list-title">Mis cursos</div>`;
+  let html = `<button class="cycle-title" id="cycleTitle">✏️ Toca para cambiar el nombre del ciclo</button><div class="list-title">📚 Mis cursos</div>`;
   if (!y.courses.length) {
     html += `<div class="empty"><div class="big">📚</div><p><b>Aún no tienes cursos en este ciclo</b></p>
       <p class="muted">Crea uno y configura sus evaluaciones y pesos.</p></div>`;
   } else {
-    html += `<div class="list">${y.courses.map(c => {
+    html += `<div class="list">${y.courses.map((c, i) => {
       const r = calc(c);
       if (c.closed) {
-        return `<a class="course-row closed" href="#/curso/${c.id}">
+        return `<a class="course-row closed pop" style="--c:${colorAt(i)}" href="#/curso/${c.id}">
           <div class="cr-top"><span class="cr-name">🎓 ${esc(c.name)}</span><span class="chip ${r.status.k}">${r.status.t}</span></div>
           <div class="cr-meta"><span>Curso cerrado</span><span>Nota final: <b>${fmt(r.filledPts)}</b></span></div></a>`;
       }
-      return `<a class="course-row" href="#/curso/${c.id}">
+      return `<a class="course-row pop" style="--c:${colorAt(i)}" href="#/curso/${c.id}">
         <div class="cr-top"><span class="cr-name">${esc(c.name)}</span><span class="chip ${r.status.k}">${r.status.t}</span></div>
         <div class="bar ${r.status.k === 'ok' ? 'ok' : ''}"><div style="width:${r.progress * 100}%"></div></div>
         <div class="cr-meta"><span>${fmt(r.progress * 100, 0)}% de aprobado</span>
         <span>Asegurado: ${fmt(r.lockedPts)} / ${fmt(c.pass)}</span></div></a>`;
     }).join('')}</div>`;
   }
-  html += `<button class="fab" id="addCourse">+ Nuevo curso</button>`;
   $('#app').innerHTML = html;
-  $('#addCourse').onclick = () => addCourse(y);
+  setFab('＋ Nuevo curso', () => addCourse(y));
   $('#menuBtn').onclick = () => optionsMenu(y);
   $('#cycleCfg').onclick = () => cycleModal(y);
+  $('#cycleTitle').onclick = () => cycleModal(y);
 }
 
 function addCourse(y) {
@@ -513,14 +636,14 @@ function addCourse(y) {
     body: `<label>Nombre del curso<input id="ncName" placeholder="Ej. Cálculo I" autocomplete="off"></label>
       <div class="row2"><label>Nota máxima<input id="ncMax" inputmode="decimal" value="20"></label>
       <label>Nota para aprobar<input id="ncPass" inputmode="decimal" value="10.5"></label></div>`,
-    actions: [{ t: 'Cancelar' }, { t: 'Crear', primary: true, fn: () => {
+    actions: [{ t: 'Cancelar' }, { t: 'Siguiente ›', primary: true, fn: () => {
       const name = $('#ncName').value.trim();
       const max = parseNum($('#ncMax').value), pass = parseNum($('#ncPass').value);
       if (!name) { toast('Escribe un nombre'); return false; }
       if (!(max > 0) || !(pass > 0) || pass > max) { toast('Revisa la nota máxima y la aprobatoria'); return false; }
-      const c = { id: uid(), name, max, pass, items: [], closed: false };
-      y.courses.push(c); save();
-      location.hash = `#/curso/${c.id}/config`;
+      // Aún no se guarda: solo se guarda al tocar "Guardar"
+      draft = { cycleId: y.id, course: { id: uid(), name, max, pass, items: [], closed: false } };
+      location.hash = '#/nuevo';
     } }]
   });
 }
@@ -679,7 +802,7 @@ function renderCourse(c) {
     html += `<div class="empty"><p>Este curso aún no tiene evaluaciones.</p>
       <a class="btn primary" href="#/curso/${c.id}/config">Configurar evaluaciones</a></div>`;
   } else {
-    html += `<div class="tree">${c.items.map(n => gradeNodeHTML(n, 1)).join('')}</div>
+    html += `<div class="tree">${c.items.map((n, i) => gradeNodeHTML(n, 1, colorAt(i))).join('')}</div>
       ${c.closed ? '' : `<p class="muted small" style="margin-top:14px">🔒 Nota oficial asegurada · 🔓 Nota de prueba (simulación). Toca 🔓 para asegurar una nota que ya te dieron.</p>`}`;
   }
   $('#app').innerHTML = html;
@@ -756,11 +879,12 @@ function holdButton(el, ms, onDone, onShort) {
   el.addEventListener('contextmenu', e => e.preventDefault());
 }
 
-function gradeNodeHTML(n, factor) {
+function gradeNodeHTML(n, factor, color = null) {
+  const cs = color ? ` style="--c:${color}"` : '';
   const ew = factor * (Number(n.weight) || 0) / 100;
   const wInfo = `${fmt(n.weight)}%${factor !== 1 ? ` · ${fmt(ew * 100)}% del curso` : ''}`;
   if (isLeaf(n)) {
-    return `<div class="leaf ${n.locked ? 'locked' : ''}">
+    return `<div class="leaf ${n.locked ? 'locked' : ''}${color ? ' blk' : ''}"${cs}>
       <div class="leaf-info"><div class="leaf-name">${esc(n.name)}</div><div class="leaf-w">${wInfo}</div>
       <div class="need" data-need="${n.id}"></div></div>
       <input data-id="${n.id}" inputmode="decimal" autocomplete="off" placeholder="—"
@@ -768,7 +892,7 @@ function gradeNodeHTML(n, factor) {
       <button class="lock-btn${n.locked ? ' on' : ''}" data-lock="${n.id}" aria-label="${n.locked ? 'Asegurada: mantén presionado para desbloquear' : 'Asegurar'}">${n.locked ? '🔒' : '🔓'}</button>
     </div>`;
   }
-  return `<div class="group">
+  return `<div class="group${color ? ' blk' : ''}"${cs}>
     <div class="group-head"><div><div class="group-name">${esc(n.name)}</div><div class="leaf-w">${wInfo}</div></div>
     <div class="group-val" data-gv="${n.id}"></div></div>
     <div class="group-body">${n.children.map(ch => gradeNodeHTML(ch, ew)).join('')}</div>
@@ -796,8 +920,8 @@ function updateLive(c) {
       msgs.push([ok ? 'ok' : 'bad', `Con esta simulación tu nota final sería <b>${fmt(r.filledPts)}</b>: ${ok ? 'apruebas ✅' : 'no apruebas ❌'}.`]);
     }
   }
-  sum.innerHTML = `
-    <div class="sum-top"><div><div class="label">Vas de aprobado</div><div class="bigpct">${fmt(r.progress * 100, 0)}%</div></div>
+  sum.innerHTML = `<div class="hero">
+    <div class="sum-top"><div><div class="label">🎯 Vas de aprobado</div><div class="bigpct">${fmt(r.progress * 100, 0)}%</div></div>
       <span class="chip ${r.status.k}">${r.status.t}</span></div>
     <div class="bar ${r.status.k === 'ok' ? 'ok' : ''}"><div style="width:${r.progress * 100}%"></div></div>
     <div class="stats">
@@ -805,8 +929,8 @@ function updateLive(c) {
       <div><span>${finalDone ? 'Nota final' : 'Acumulado'}</span><b>${r.ls.length ? fmt(r.filledPts) : '—'}</b>
         <small>${finalDone ? 'según secciones redondeadas' : `faltan ${fmt(r.emptyW * 100)}%`}</small></div>
       <div><span>Evaluado</span><b>${fmt(r.lockedW * 100, 0)}%</b><small>asegurado del curso</small></div>
-    </div>
-    ${r.heads.length ? `<div class="heads-title">Notas por sección</div><div class="heads">${r.heads.map(h => {
+    </div></div>
+    ${r.heads.length ? `<div class="heads-title">📊 Notas por sección</div><div class="heads">${r.heads.map((h, hi) => {
       let cls = 'partial', val = '—', sub = 'sin notas';
       if (h.complete) {
         cls = h.rounded >= c.pass - 1e-9 ? 'ok' : 'bad';
@@ -816,7 +940,7 @@ function updateLive(c) {
         val = fmt(roundHalf(h.raw), 0);
         sub = `parcial · ${fmt(h.frac * 100, 0)}% lleno`;
       }
-      return `<div class="head-card ${cls}"><div class="hc-name">${esc(h.n.name)}</div><div class="hc-w">${fmt(Number(h.n.weight) || 0)}% del curso</div>
+      return `<div class="head-card ${cls}" style="--c:${colorAt(hi)}"><div class="hc-name">${esc(h.n.name)}</div><div class="hc-w">${fmt(Number(h.n.weight) || 0)}% del curso</div>
         <div class="hc-val">${val}</div><div class="hc-sub">${sub}</div></div>`;
     }).join('')}</div>` : ''}
     ${msgs.map(([k, t]) => `<div class="need-msg ${k}">${t}</div>`).join('')}`;
@@ -841,7 +965,8 @@ function updateLive(c) {
 
 /* ============ Configuración del curso ============ */
 function renderConfig(c) {
-  setHeader('Configurar curso', `#/curso/${c.id}`);
+  const isDraft = !!(draft && draft.course === c);
+  setHeader(isDraft ? 'Nuevo curso' : 'Configurar curso', isDraft ? `#/ciclo/${draft.cycleId}` : `#/curso/${c.id}`);
   $('#app').innerHTML = `
     <section class="card">
       <label>Nombre del curso<input id="cName" value="${esc(c.name)}" autocomplete="off"></label>
@@ -852,14 +977,14 @@ function renderConfig(c) {
     </section>
     <h2 class="section-title">Evaluaciones y pesos</h2>
     <p class="muted small">Cada grupo debe sumar 100%. Usa <b>Subdividir</b> para que una evaluación se calcule a partir de otras internas (solo las de último nivel llevarán nota).</p>
-    ${cfgListHTML(c.items, 'root')}
-    ${!c.items.length ? `<button class="btn block" id="tpl">Cargar ejemplo (Final, Parcial, Evaluaciones continuas…)</button>` : ''}
-    ${c.items.length ? `<p class="muted small" style="margin-top:12px">↕️ Mantén presionado un bloque (o arrastra desde ⠿) para moverlo arriba o abajo.</p>
-    <div class="cfg-tools"><button class="btn" id="exportTpl">📤 Exportar formato</button></div>` : ''}
-    ${isComplete(c) ? `<div class="close-box"><div><b>🎓 Todas las notas están llenas</b><div class="muted small">Puedes cerrar el curso: se aseguran todas las notas y queda con su nota final.</div></div>
+    ${c.items.length ? cfgListHTML(c.items, 'root') : `<div class="start-card pop"><div class="big">🚀</div>
+      <b>¡Arma tu curso!</b><p class="muted small">Empieza con tu primera evaluación y luego agrega las demás.</p>
+      <button class="btn grad" id="startBtn">✨ Empezar</button></div>`}
+    ${c.items.length ? `<p class="muted small" style="margin-top:12px">↕️ Mantén presionado un bloque (o arrastra desde ⠿) para moverlo arriba o abajo.</p>` : ''}
+    ${!isDraft && isComplete(c) ? `<div class="close-box"><div><b>🎓 Todas las notas están llenas</b><div class="muted small">Puedes cerrar el curso: se aseguran todas las notas y queda con su nota final.</div></div>
       <button class="btn close-btn" id="closeCourse">Cerrar curso</button></div>` : ''}
-    <a class="btn primary block" href="#/curso/${c.id}">Listo</a>
-    <div class="danger-zone"><button class="btn danger sm" id="delCourse">Eliminar curso</button></div>`;
+    <button class="btn grad block" id="saveCourse">💾 Guardar</button>
+    ${isDraft ? '' : `<div class="danger-zone"><button class="btn danger sm" id="delCourse">🗑️ Eliminar curso</button></div>`}`;
   updateSums(c);
 
   $('#cName').oninput = e => { c.name = e.target.value.trim() || 'Sin nombre'; save(); };
@@ -925,12 +1050,21 @@ function renderConfig(c) {
       } }]
     });
   };
-  const ex = $('#exportTpl');
-  if (ex) ex.onclick = () => exportCourses([c], false);
   enableReorder(c);
-  const tpl = $('#tpl');
-  if (tpl) tpl.onclick = () => { c.items = exampleTemplate(); save(); keepScroll(() => renderConfig(c)); };
-  $('#delCourse').onclick = () => modal({
+  const st = $('#startBtn');
+  if (st) st.onclick = () => { c.items = [newNode('Examen Final', 100)]; save(); keepScroll(() => renderConfig(c)); };
+  $('#saveCourse').onclick = () => {
+    if (!c.name.trim()) { toast('Ponle un nombre al curso'); return; }
+    if (isDraft) {
+      const y = findCycle(draft.cycleId);
+      if (!y) { toast('El ciclo ya no existe'); return; }
+      y.courses.push(c); draft = null; save();
+      toast('Curso guardado 🎉');
+    } else { save(); toast('Guardado 💾'); }
+    location.hash = `#/curso/${c.id}`;
+  };
+  const dc = $('#delCourse');
+  if (dc) dc.onclick = () => modal({
     title: '¿Eliminar curso?',
     body: `<p>Se borrará <b>${esc(c.name)}</b> con todas sus notas. No se puede deshacer.</p>`,
     actions: [{ t: 'Cancelar' }, { t: 'Eliminar', danger: true, fn: () => {
@@ -988,7 +1122,7 @@ function enableReorder(course) {
     save(); keepScroll(() => renderConfig(c));
   }
   function headOf(target) {
-    if (!/\/config$/.test(location.hash)) return null;
+    if (!/\/config$|^#\/nuevo/.test(location.hash)) return null;
     const head = target.closest('.cfg-head');
     if (!head || !app.contains(head)) return null;
     const isGrip = !!target.closest('.grip');
@@ -1028,7 +1162,7 @@ function enableReorder(course) {
 
 function cfgListHTML(list, pid) {
   return `<div class="cfg-list ${pid === 'root' ? 'root' : ''}" data-pid="${pid}">
-    ${list.map(cfgNodeHTML).join('')}
+    ${list.map((n, i) => cfgNodeHTML(n, pid === 'root' ? colorAt(i) : null)).join('')}
     <div class="cfg-foot"><span class="sum" data-sum="${pid}"></span>
       <div class="cfg-foot-btns">
         ${list.length > 1 ? `<button class="btn sm" data-split="${pid}">Repartir igual</button>` : ''}
@@ -1036,8 +1170,8 @@ function cfgListHTML(list, pid) {
       </div></div>
   </div>`;
 }
-function cfgNodeHTML(n) {
-  return `<div class="cfg-node" data-id="${n.id}">
+function cfgNodeHTML(n, color) {
+  return `<div class="cfg-node${color ? ' blk' : ''}" data-id="${n.id}"${color ? ` style="--c:${color}"` : ''}>
     <div class="cfg-head">
     <div class="cfg-row">
       <span class="grip" aria-label="Mover">⠿</span>
