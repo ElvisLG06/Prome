@@ -1417,13 +1417,14 @@ function enableReorder(course) {
     // No dejarlo salir del grupo
     const minDy = d.rects[0].top - d.rects[d.from].top;
     const maxDy = d.rects[d.rects.length - 1].bottom - d.rects[d.from].bottom;
-    dy = Math.max(minDy - 12, Math.min(maxDy + 12, dy));
+    dy = Math.max(minDy - 40, Math.min(maxDy + 40, dy));
     d.dy = dy;
     d.el.style.transform = `translateY(${dy}px) scale(1.02)`;
-    // ¿En qué posición cae su centro?
-    const center = d.rects[d.from].top + d.h / 2 + dy;
-    let to = 0;
-    d.rects.forEach((r, i) => { if (i !== d.from && center > r.top + r.height / 2) to++; });
+    // ¿Dónde cae? Cambia de lugar cuando tapa más del 75% del bloque vecino (sirve para bloques altos)
+    const top = d.rects[d.from].top + dy, bottom = top + d.h;
+    let to = d.from;
+    if (dy < 0) { for (let i = d.from - 1; i >= 0; i--) { const r = d.rects[i]; if (top < r.top + r.height * 0.25) to = i; else break; } }
+    else if (dy > 0) { for (let i = d.from + 1; i < d.rects.length; i++) { const r = d.rects[i]; if (bottom > r.bottom - r.height * 0.25) to = i; else break; } }
     if (to !== d.to) {
       d.to = to;
       const shift = d.h + d.gap;
