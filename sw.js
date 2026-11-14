@@ -1,6 +1,6 @@
 // Primero intenta internet (para ver siempre la última versión); si no hay conexión, usa la copia guardada.
-const CACHE = 'prome-v5';
-const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'prome-v6';
+const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.svg', './apple-touch-icon.png', './icon-maskable-192.png', './icon-maskable-512.png'];
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); });
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())

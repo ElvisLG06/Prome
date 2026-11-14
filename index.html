@@ -7,8 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Prome</title>
 <style>
 :root{
@@ -209,7 +210,7 @@ body{background:var(--bg)}
 .top{background:rgba(255,255,255,.75);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(124,92,255,.12)}
 .top h1{font-weight:800}
 .brand{display:inline-flex;align-items:center;gap:8px}
-.brand .logo{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:11px;background:var(--grad);font-size:1.1rem;box-shadow:none}
+.brand .logo{display:block;width:36px;height:36px;border-radius:10px}
 .brand-name{font-size:1.45rem;font-weight:900;letter-spacing:-.02em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .icon-btn{background:#fff;border:1px solid var(--line)}
 .hello{margin:6px 2px 18px}
@@ -487,7 +488,7 @@ function groupValue(n) {
 /* ============ UI base ============ */
 function setHeader(title, backHref, actions = '', brand = false) {
   const t = $('#title');
-  if (brand) t.innerHTML = `<span class="brand"><span class="logo">🎯</span><span class="brand-name">${esc(title)}</span></span>`;
+  if (brand) t.innerHTML = `<span class="brand"><img class="logo" src="logo.svg" alt=""><span class="brand-name">${esc(title)}</span></span>`;
   else t.textContent = title;
   $('.top').classList.toggle('home', brand);
   const b = $('#back');
