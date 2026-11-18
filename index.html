@@ -455,8 +455,6 @@ function weightIssues(list, label = 'Nivel principal', out = []) {
 }
 
 /* ============ Cálculos ============ */
-/* Redondeo de las secciones principales: 10.5 → 11, 10.4 → 10 */
-const roundHalf = x => Math.floor(x + 0.5 + 1e-9);
 const hasGrade = n => n.grade != null && isFinite(n.grade);
 
 /* Información de una sección principal (cabeza) */
@@ -472,7 +470,7 @@ function headInfo(n) {
   return {
     n, ls, tw, fp, fw, lp, lw, complete, lockedAll,
     raw: complete ? fp / tw : (fw > 1e-12 ? fp / fw : null),   // con decimales
-    rounded: complete ? roundHalf(fp / tw) : null,              // redondeada
+    rounded: complete ? fp / tw : null,                         // nota del bloque (con decimales, sin redondear)
     frac: tw > 1e-12 ? fw / tw : 0
   };
 }
@@ -488,22 +486,22 @@ function calc(c) {
   let lockedPts = 0, lockedW = 0, filledPts = 0, filledW = 0, totalW = 0;
   for (const h of heads) {
     totalW += h.tw; filledW += h.fw; lockedW += h.lw;
-    // Sección completa: cuenta su nota redondeada; si no, lo que lleva
-    filledPts += h.complete ? h.rounded * h.tw : h.fp;
-    lockedPts += h.lockedAll ? roundHalf(h.lp / h.tw) * h.tw : h.lp;
+    // Las notas de los bloques NO se redondean: se usan con decimales
+    filledPts += h.fp;
+    lockedPts += h.lp;
     // Por bloque (para candado): cuánto necesita en lo que le falta
     const remH = h.tw - h.lw, emptyH = h.tw - h.fw;
     h.need = remH > 1e-9 ? (c.pass * h.tw - h.lp) / remH : null;
     h.needEmpty = emptyH > 1e-9 ? (c.pass * h.tw - h.fp) / emptyH : null;
     h.secured = h.tw > 0 && h.lp >= c.pass * h.tw - 1e-9;
-    h.failed = (h.lockedAll && roundHalf(h.lp / h.tw) < c.pass) || (h.need != null && h.need > c.max + 1e-9);
+    h.failed = (h.lockedAll && h.lp / h.tw < c.pass - 1e-9) || (h.need != null && h.need > c.max + 1e-9);
     h.passedNow = h.complete && h.rounded >= c.pass - 1e-9;   // con lo llenado (incluye pruebas)
   }
   // Candado: si un bloque completo sale desaprobado, la final queda en máximo 10
   const failedHeads = cand ? heads.filter(h => h.complete && h.rounded < c.pass - 1e-9) : [];
   const complete = ls.length > 0 && totalW - filledW <= 1e-9;
   if (cand && complete && failedHeads.length) filledPts = Math.min(candadoCap(c), filledPts);
-  const lockedFailed = cand ? heads.filter(h => h.lockedAll && roundHalf(h.lp / h.tw) < c.pass - 1e-9) : [];
+  const lockedFailed = cand ? heads.filter(h => h.lockedAll && h.lp / h.tw < c.pass - 1e-9) : [];
   if (cand && lockedW >= totalW - 1e-9 && lockedFailed.length) lockedPts = Math.min(candadoCap(c), lockedPts);
   const passed = filledPts >= c.pass - 1e-9 && !failedHeads.length;
 
@@ -1206,17 +1204,17 @@ function updateLive(c) {
     <div class="stats">
       <div><span>Asegurado</span><b>${fmt(r.lockedPts)}</b><small>de ${fmt(c.pass)} para aprobar</small></div>
       <div><span>${finalDone ? 'Nota final' : 'Acumulado'}</span><b>${r.ls.length ? fmt(r.filledPts) : '—'}</b>
-        <small>${finalDone ? 'según secciones redondeadas' : `faltan ${fmt(r.emptyW * 100)}%`}</small></div>
+        <small>${finalDone ? 'con todas tus notas' : `faltan ${fmt(r.emptyW * 100)}%`}</small></div>
       <div><span>Evaluado</span><b>${fmt(r.lockedW * 100, 0)}%</b><small>asegurado del curso</small></div>
     </div></div>
     ${r.heads.length ? `<div class="heads-title">📊 Notas por sección</div><div class="heads">${r.heads.map((h, hi) => {
       let cls = 'partial', val = '—', sub = 'sin notas';
       if (h.complete) {
         cls = h.rounded >= c.pass - 1e-9 ? 'ok' : 'bad';
-        val = fmt(h.rounded, 0);
+        val = fmt(h.rounded);
         sub = h.lockedAll ? '🔒 asegurada' : 'con notas de prueba';
       } else if (h.raw != null) {
-        val = fmt(roundHalf(h.raw), 0);
+        val = fmt(h.raw);
         sub = `parcial · ${fmt(h.frac * 100, 0)}% lleno`;
       }
       return `<div class="head-card ${cls}" style="--c:${colorAt(hi)}"><div class="hc-name">${esc(h.n.name)}</div><div class="hc-w">${fmt(Number(h.n.weight) || 0)}% del curso</div>
