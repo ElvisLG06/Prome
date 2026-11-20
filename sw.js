@@ -1,6 +1,6 @@
 // Con internet: siempre pide la versión más reciente (sin usar copias viejas del navegador).
 // Sin internet: usa la última versión guardada.
-const CACHE = 'prome-v15';
+const CACHE = 'prome-v16';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.svg', './apple-touch-icon.png', './icon-maskable-192.png', './icon-maskable-512.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();

@@ -458,7 +458,9 @@ function weightIssues(list, label = 'Nivel principal', out = []) {
 const hasGrade = n => n.grade != null && isFinite(n.grade);
 
 /* Información de una sección principal (cabeza) */
-function headInfo(n) {
+/* Redondeo opcional por curso (c.round): 10.5 → 11, 10.4 → 10 */
+const roundHalf = x => Math.floor(x + 0.5 + 1e-9);
+function headInfo(n, rnd) {
   const ls = leaves([n]);
   let tw = 0, fp = 0, fw = 0, lp = 0, lw = 0;
   for (const { node, ew } of ls) {
@@ -470,7 +472,7 @@ function headInfo(n) {
   return {
     n, ls, tw, fp, fw, lp, lw, complete, lockedAll,
     raw: complete ? fp / tw : (fw > 1e-12 ? fp / fw : null),   // con decimales
-    rounded: complete ? fp / tw : null,                         // nota del bloque (con decimales, sin redondear)
+    rounded: complete ? (rnd ? roundHalf(fp / tw) : fp / tw) : null,   // nota del bloque (redondeada si el curso lo pide)
     frac: tw > 1e-12 ? fw / tw : 0
   };
 }
@@ -480,28 +482,30 @@ const isCandado = c => !!c.candado && c.items.length > 1;
 const candadoCap = c => Math.ceil(c.pass) - 1;   // con 10.5 para aprobar → la final queda en máx. 10
 
 function calc(c) {
-  const heads = c.items.map(headInfo);
+  const rnd = !!c.round;
+  const hv = x => rnd ? roundHalf(x) : x;
+  const heads = c.items.map(n => headInfo(n, rnd));
   const ls = heads.flatMap(h => h.ls);
   const cand = isCandado(c);
   let lockedPts = 0, lockedW = 0, filledPts = 0, filledW = 0, totalW = 0;
   for (const h of heads) {
     totalW += h.tw; filledW += h.fw; lockedW += h.lw;
-    // Las notas de los bloques NO se redondean: se usan con decimales
-    filledPts += h.fp;
-    lockedPts += h.lp;
+    // Bloque completo: cuenta su nota (redondeada si el curso tiene redondeo); si no, lo que lleva
+    filledPts += h.complete ? h.rounded * h.tw : h.fp;
+    lockedPts += h.lockedAll ? hv(h.lp / h.tw) * h.tw : h.lp;
     // Por bloque (para candado): cuánto necesita en lo que le falta
     const remH = h.tw - h.lw, emptyH = h.tw - h.fw;
     h.need = remH > 1e-9 ? (c.pass * h.tw - h.lp) / remH : null;
     h.needEmpty = emptyH > 1e-9 ? (c.pass * h.tw - h.fp) / emptyH : null;
     h.secured = h.tw > 0 && h.lp >= c.pass * h.tw - 1e-9;
-    h.failed = (h.lockedAll && h.lp / h.tw < c.pass - 1e-9) || (h.need != null && h.need > c.max + 1e-9);
+    h.failed = (h.lockedAll && hv(h.lp / h.tw) < c.pass - 1e-9) || (h.need != null && h.need > c.max + 1e-9);
     h.passedNow = h.complete && h.rounded >= c.pass - 1e-9;   // con lo llenado (incluye pruebas)
   }
   // Candado: si un bloque completo sale desaprobado, la final queda en máximo 10
   const failedHeads = cand ? heads.filter(h => h.complete && h.rounded < c.pass - 1e-9) : [];
   const complete = ls.length > 0 && totalW - filledW <= 1e-9;
   if (cand && complete && failedHeads.length) filledPts = Math.min(candadoCap(c), filledPts);
-  const lockedFailed = cand ? heads.filter(h => h.lockedAll && h.lp / h.tw < c.pass - 1e-9) : [];
+  const lockedFailed = cand ? heads.filter(h => h.lockedAll && hv(h.lp / h.tw) < c.pass - 1e-9) : [];
   if (cand && lockedW >= totalW - 1e-9 && lockedFailed.length) lockedPts = Math.min(candadoCap(c), lockedPts);
   const passed = filledPts >= c.pass - 1e-9 && !failedHeads.length;
 
@@ -743,7 +747,7 @@ $('#pdfFile').addEventListener('change', async e => {
   try {
     const r = await readSyllabus(f);
     closeModal();
-    draft = { cycleId: ctx.cycleId, fromPdf: true, course: { id: uid(), name: r.name || ctx.name || 'Curso nuevo', max: ctx.max, pass: ctx.pass, candado: r.candado, items: sylToNodes(r.items), closed: false } };
+    draft = { cycleId: ctx.cycleId, fromPdf: true, course: { id: uid(), name: r.name || ctx.name || 'Curso nuevo', max: ctx.max, pass: ctx.pass, candado: r.candado, round: !!ctx.round, items: sylToNodes(r.items), closed: false } };
     location.hash = '#/nuevo';
   } catch (err) {
     modal({
@@ -769,7 +773,10 @@ function route() {
   } else if (p[0] === 'curso' && findCourse(p[1])) {
     const c = findCourse(p[1]);
     if (p[2] === 'config' && !c.closed) {
-      if (!editing || editing.orig !== c) editing = { orig: c, course: cloneCourse(c), snap: JSON.stringify(c) };
+      if (!editing || editing.orig !== c) {
+        const cl = cloneCourse(c); cl.round = !!cl.round; cl.candado = !!cl.candado;
+        editing = { orig: c, course: cl, snap: JSON.stringify(cl) };
+      }
       renderConfig(editing.course);
     } else renderCourse(c);
   } else if (p[0] === 'ciclo' && findCycle(p[1])) renderCycle(findCycle(p[1]));
@@ -871,6 +878,8 @@ function addCourse(y) {
       <label>Nombre del curso<input id="ncName" placeholder="Ej. Cálculo I" autocomplete="off"></label>
       <div class="row2"><label>Nota máxima<input id="ncMax" inputmode="decimal" value="20"></label>
       <label>Nota para aprobar<input id="ncPass" inputmode="decimal" value="10.5"></label></div>
+      <label class="switch"><input type="checkbox" id="ncRound"><span class="sw"></span>
+        <span class="sw-txt"><b>🔢 Redondear notas</b><small>Cada bloque principal se redondea (10.5 → 11, 10.4 → 10) y la final se calcula con esos bloques.</small></span></label>
       <label class="switch"><input type="checkbox" id="ncCand"><span class="sw"></span>
         <span class="sw-txt"><b>🔐 Curso candado</b><small>Hay que aprobar cada bloque principal (ej. Teoría y Laboratorio) por separado.</small></span></label>`,
     actions: [{ t: 'Cancelar' }, { t: 'Siguiente ›', primary: true, fn: () => {
@@ -879,14 +888,14 @@ function addCourse(y) {
       if (!name) { toast('Escribe un nombre'); return false; }
       if (!(max > 0) || !(pass > 0) || pass > max) { toast('Revisa la nota máxima y la aprobatoria'); return false; }
       // Aún no se guarda: solo se guarda al tocar "Guardar"
-      draft = { cycleId: y.id, course: { id: uid(), name, max, pass, candado: $('#ncCand').checked, items: [], closed: false } };
+      draft = { cycleId: y.id, course: { id: uid(), name, max, pass, candado: $('#ncCand').checked, round: $('#ncRound').checked, items: [], closed: false } };
       location.hash = '#/nuevo';
     } }]
   });
   $('#fromPdf').onclick = () => {
     const max = parseNum($('#ncMax').value), pass = parseNum($('#ncPass').value);
     if (!(max > 0) || !(pass > 0) || pass > max) { toast('Revisa la nota máxima y la aprobatoria'); return; }
-    pendingPdf = { cycleId: y.id, max, pass, name: $('#ncName').value.trim() };
+    pendingPdf = { cycleId: y.id, max, pass, round: $('#ncRound').checked, name: $('#ncName').value.trim() };
     $('#pdfFile').click();
   };
 }
@@ -950,7 +959,7 @@ function serializeCourse(c, withGrades) {
     if (withGrades && isLeaf(n) && hasGrade(n)) { o.grade = n.grade; o.locked = !!n.locked; }
     return o;
   };
-  return { name: c.name, max: c.max, pass: c.pass, closed: withGrades ? !!c.closed : false, items: c.items.map(ser) };
+  return { name: c.name, max: c.max, pass: c.pass, candado: !!c.candado, round: !!c.round, closed: withGrades ? !!c.closed : false, items: c.items.map(ser) };
 }
 function exportCourses(courses, withGrades) {
   // Solo los cursos, sin ciclo: al importar se elige a qué ciclo agregarlos
@@ -978,7 +987,7 @@ function buildCourse(t) {
   };
   const max = Number(t.max) > 0 ? Number(t.max) : 20;
   const pass = Number(t.pass) > 0 ? Number(t.pass) : 10.5;
-  return { id: uid(), name: String(t.name || 'Curso importado'), max, pass, closed: !!t.closed, items: (t.items || []).map(build) };
+  return { id: uid(), name: String(t.name || 'Curso importado'), max, pass, candado: !!t.candado, round: !!t.round, closed: !!t.closed, items: (t.items || []).map(build) };
 }
 const safeFile = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'curso';
 
@@ -1204,17 +1213,17 @@ function updateLive(c) {
     <div class="stats">
       <div><span>Asegurado</span><b>${fmt(r.lockedPts)}</b><small>de ${fmt(c.pass)} para aprobar</small></div>
       <div><span>${finalDone ? 'Nota final' : 'Acumulado'}</span><b>${r.ls.length ? fmt(r.filledPts) : '—'}</b>
-        <small>${finalDone ? 'con todas tus notas' : `faltan ${fmt(r.emptyW * 100)}%`}</small></div>
+        <small>${finalDone ? (c.round ? 'según secciones redondeadas' : 'con todas tus notas') : `faltan ${fmt(r.emptyW * 100)}%`}</small></div>
       <div><span>Evaluado</span><b>${fmt(r.lockedW * 100, 0)}%</b><small>asegurado del curso</small></div>
     </div></div>
     ${r.heads.length ? `<div class="heads-title">📊 Notas por sección</div><div class="heads">${r.heads.map((h, hi) => {
       let cls = 'partial', val = '—', sub = 'sin notas';
       if (h.complete) {
         cls = h.rounded >= c.pass - 1e-9 ? 'ok' : 'bad';
-        val = fmt(h.rounded);
+        val = fmt(h.rounded, c.round ? 0 : 2);
         sub = h.lockedAll ? '🔒 asegurada' : 'con notas de prueba';
       } else if (h.raw != null) {
-        val = fmt(h.raw);
+        val = c.round ? fmt(roundHalf(h.raw), 0) : fmt(h.raw);
         sub = `parcial · ${fmt(h.frac * 100, 0)}% lleno`;
       }
       return `<div class="head-card ${cls}" style="--c:${colorAt(hi)}"><div class="hc-name">${esc(h.n.name)}</div><div class="hc-w">${fmt(Number(h.n.weight) || 0)}% del curso</div>
@@ -1266,7 +1275,7 @@ function renderConfig(c) {
                 { t: '💾 Guardar', primary: true, fn: () => { $('#saveCourse').click(); } }]
     });
   };
-  const applyEdit = () => { if (isEdit) { Object.assign(orig, { name: c.name, max: c.max, pass: c.pass, items: c.items }); editing.snap = JSON.stringify(c); } };
+  const applyEdit = () => { if (isEdit) { Object.assign(orig, { name: c.name, max: c.max, pass: c.pass, candado: !!c.candado, round: !!c.round, items: c.items }); editing.snap = JSON.stringify(c); } };
   $('#app').innerHTML = `
     ${isDraft && draft.fromPdf ? `<div class="from-pdf"><span class="big">📄</span><div><b>Esquema leído del sílabo</b><br>
       Revisa nombres y pesos; puedes cambiar, agregar o quitar lo que quieras antes de guardar.${c.candado ? ' Detecté que es <b>curso candado</b>.' : ''}</div></div>` : ''}
@@ -1276,6 +1285,8 @@ function renderConfig(c) {
         <label>Nota máxima<input id="cMax" inputmode="decimal" value="${c.max}"></label>
         <label>Nota para aprobar<input id="cPass" inputmode="decimal" value="${c.pass}"></label>
       </div>
+      <label class="switch"><input type="checkbox" id="cRound" ${c.round ? 'checked' : ''}><span class="sw"></span>
+        <span class="sw-txt"><b>🔢 Redondear notas</b><small>Cada bloque principal se redondea (10.5 → 11, 10.4 → 10) y la final se calcula con esos bloques.</small></span></label>
       <label class="switch"><input type="checkbox" id="cCand" ${c.candado ? 'checked' : ''}><span class="sw"></span>
         <span class="sw-txt"><b>🔐 Curso candado</b><small>Hay que aprobar cada bloque principal (ej. Teoría y Laboratorio) por separado.</small></span></label>
     </section>
@@ -1293,7 +1304,8 @@ function renderConfig(c) {
 
   $('#cName').oninput = e => { c.name = e.target.value.trim() || 'Sin nombre'; save(); };
   $('#cMax').oninput = e => { const v = parseNum(e.target.value); if (v > 0) { c.max = v; save(); } };
-  $('#cCand').onchange = e => { c.candado = e.target.checked; save(); };
+  $('#cCand').onchange = e => { c.candado = e.target.checked; };
+  $('#cRound').onchange = e => { c.round = e.target.checked; };
   $('#cPass').oninput = e => { const v = parseNum(e.target.value); if (v > 0) { c.pass = v; save(); } };
 
   const app = $('#app');
